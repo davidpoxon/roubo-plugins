@@ -1,0 +1,170 @@
+name: dco
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Read-only by design. On an external (fork) PR, `pull_request` runs the PR
+# head's own workflow + code, so this job must never hold write permissions. It
+# only produces a verdict artifact and goes red when a commit is missing its DCO
+# sign-off. The sticky comment is posted by the privileged dco-comment workflow,
+# which is triggered via workflow_run and runs in the trusted base-repo context.
+# That split is what lets fork PRs receive a comment despite their read-only
+# pull_request GITHUB_TOKEN.
+permissions:
+  contents: read
+
+jobs:
+  dco-check:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify DCO sign-off on every commit
+        id: verify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF_SHA: ${{ github.event.pull_request.head.sha }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Fetch the base branch with full history (not --depth=1) so
+          # BASE_SHA's ancestry is known to git. A shallow fetch of just
+          # BASE_SHA treats it as having no ancestors, which makes
+          # `BASE_SHA..HEAD` incorrectly include commits that are on the
+          # base branch, flagging them as "missing sign-off" when they
+          # belong to other contributors entirely.
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+          # The PR number is advisory only: the follow-up comment workflow
+          # re-derives the PR from the run's head SHA in its trusted context and
+          # does not trust this value.
+          printf '%s\n' "$PR_NUMBER" > pr-number.txt
+
+          commits=$(git log --no-merges --format='%H' "${BASE_SHA}".."${HEAD_SHA}")
+
+          if [ -z "$commits" ]; then
+            echo "No non-merge commits to check."
+            printf 'ok\n' > result.txt
+            echo "result=ok" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Author emails belonging to automated dependency-update bots that
+          # are exempt from the per-commit DCO requirement. DCO is a legal
+          # attestation by a human contributor; bots cannot meaningfully
+          # attest, which is why mainstream DCO tooling (e.g. the GitHub DCO
+          # App) ships with an equivalent allowlist. Spoofing the author email
+          # gains nothing here: the regex below already trusts that same email
+          # as the basis for what trailer it accepts, so the threat model is
+          # unchanged.
+          bot_authors=(
+            "49699333+dependabot[bot]@users.noreply.github.com"
+          )
+
+          missing=()
+          for sha in $commits; do
+            author_email=$(git log -1 --format='%ae' "$sha")
+            body=$(git log -1 --format='%B' "$sha")
+
+            skip=0
+            for bot in "${bot_authors[@]}"; do
+              if [ "$author_email" = "$bot" ]; then
+                skip=1
+                break
+              fi
+            done
+            if [ "$skip" -eq 1 ]; then
+              continue
+            fi
+
+            # The sign-off must appear in the message and contain the author email.
+            if ! printf '%s\n' "$body" | grep -qiE "^Signed-off-by: .+<.+@.+>$"; then
+              missing+=("$sha")
+              continue
+            fi
+
+            # Escape ERE metacharacters in the email so emails containing
+            # `+`, `[`, `.`, etc. (Renovate's bot email, plus-aliased human
+            # emails) compare as literal strings rather than as regex.
+            escaped_email=$(printf '%s' "$author_email" | sed 's/[].[\\$*^+?()|{}]/\\&/g')
+
+            if ! printf '%s\n' "$body" | grep -qiE "^Signed-off-by: .+<${escaped_email}>$"; then
+              missing+=("$sha")
+            fi
+          done
+
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "All commits have a valid DCO sign-off."
+            printf 'ok\n' > result.txt
+            echo "result=ok" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Build the failure body once and reuse it for both the job summary
+          # and the sticky PR comment posted by the dco-comment workflow.
+          {
+            echo "<!-- dco-sticky-comment -->"
+            echo "## DCO sign-off missing"
+            echo ""
+            echo "The following commit(s) are missing a valid \`Signed-off-by:\` line matching the commit author's email:"
+            echo ""
+            for sha in "${missing[@]}"; do
+              subject=$(git log -1 --format='%s' "$sha")
+              short=$(git log -1 --format='%h' "$sha")
+              echo "- \`${short}\` ${subject}"
+            done
+            echo ""
+            echo "### How to fix"
+            echo ""
+            echo "If only the most recent commit is missing sign-off:"
+            echo ""
+            echo '```bash'
+            echo "git commit --amend --no-edit --signoff"
+            echo "git push --force-with-lease"
+            echo '```'
+            echo ""
+            echo "If multiple commits in this pull request are missing sign-off:"
+            echo ""
+            echo '```bash'
+            echo "git rebase --signoff origin/${BASE_REF}"
+            echo "git push --force-with-lease"
+            echo '```'
+            echo ""
+            echo "See [CONTRIBUTING.md](${SERVER_URL}/${REPOSITORY}/blob/${HEAD_REF_SHA}/CONTRIBUTING.md#developer-certificate-of-origin-dco) for full instructions."
+          } > dco-comment.md
+
+          cat dco-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+          printf 'missing\n' > result.txt
+          echo "result=missing" >> "$GITHUB_OUTPUT"
+          echo "::error::One or more commits are missing DCO sign-off. See the job summary, and the PR comment posted by the follow-up workflow, for the list and the fix."
+
+      - name: Upload verdict artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dco-verdict
+          path: |
+            result.txt
+            pr-number.txt
+            dco-comment.md
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Fail on missing sign-off
+        if: steps.verify.outputs.result == 'missing'
+        run: exit 1

@@ -13,6 +13,7 @@
     "plugins/*"
   ],
   "scripts": {
+    "prepare": "node -e \"try{require('child_process').execSync('git rev-parse --git-dir',{stdio:'ignore'});require('child_process').execSync('git config core.hooksPath scripts/git-hooks',{stdio:'inherit'});require('fs').chmodSync('scripts/git-hooks/commit-msg',0o755)}catch{}\"",
     "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-ghe && npm run build -w @roubo/plugin-jira-self-hosted && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database"
   },
   "devDependencies": {

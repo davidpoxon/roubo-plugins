@@ -1,0 +1,62 @@
+#!/bin/sh
+# Roubo commit-msg hook: rejects commits missing a DCO Signed-off-by line
+# matching the committer's email. Mirrors .github/workflows/dco.yml so local
+# and CI verdicts cannot diverge. See CONTRIBUTING.md "Developer Certificate
+# of Origin" for the full rationale.
+set -eu
+
+msg_file=$1
+
+# Skip merge commits (CI uses --no-merges; match that here).
+git_dir=$(git rev-parse --git-dir)
+if [ -f "$git_dir/MERGE_MSG" ]; then
+  exit 0
+fi
+
+# Skip fixup/squash commits; the eventual rebased commit is what CI checks.
+first_line=$(sed -n '1p' "$msg_file")
+case "$first_line" in
+  "fixup!"*|"squash!"*|"amend!"*)
+    exit 0
+    ;;
+esac
+
+author_email=$(git config user.email || true)
+if [ -z "$author_email" ]; then
+  echo "commit-msg hook: git user.email is not set; cannot verify DCO sign-off." >&2
+  echo "Set it with: git config --global user.email you@example.com" >&2
+  exit 1
+fi
+
+# Escape ERE metacharacters in the email so plus-aliased or dotted emails
+# compare as literal strings. Matches the escaping in dco.yml.
+escaped_email=$(printf '%s' "$author_email" | sed 's/[].[\\$*^+?()|{}]/\\&/g')
+
+if grep -qiE "^Signed-off-by: .+<${escaped_email}>\$" "$msg_file"; then
+  exit 0
+fi
+
+cat >&2 <<EOF
+
+Commit rejected: missing DCO sign-off matching <${author_email}>.
+
+Every commit in this repo must include a Signed-off-by line under the
+Developer Certificate of Origin. The easiest fix:
+
+  git commit -s ...
+
+Or if you have already typed your message, re-run with --signoff:
+
+  git commit --signoff ...
+
+To amend the most recent commit:
+
+  git commit --amend --no-edit --signoff
+
+To sign off every commit on this branch:
+
+  git rebase --signoff origin/main
+
+See CONTRIBUTING.md "Developer Certificate of Origin (DCO)" for details.
+EOF
+exit 1
