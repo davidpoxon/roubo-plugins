@@ -54,10 +54,19 @@ jobs:
       # version comes from package.json.
       - name: Resolve plugin and version
         id: meta
+        # `${{ }}` values are never interpolated into the run: script text (they
+        # are expanded before the shell parses, so a crafted tag name could inject
+        # a command substitution). They are bound to env vars and referenced as
+        # quoted shell variables instead. github.event_name is GitHub-controlled
+        # and inputs.plugin is a constrained choice, but both are env-bound here
+        # for a consistent no-untrusted-interpolation posture.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PLUGIN_INPUT: ${{ inputs.plugin }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            PLUGIN_ID="${{ inputs.plugin }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PLUGIN_ID="$PLUGIN_INPUT"
             VERSION="$(node -p "require('./plugins/${PLUGIN_ID}/package.json').version")"
             TAG="${PLUGIN_ID}-v${VERSION}"
           else
@@ -73,23 +82,28 @@ jobs:
 
       # Build the normalized, reproducible tarball and print its digest.
       - name: Pack artifact
-        run: node scripts/release/pack.mjs --plugin "${{ steps.meta.outputs.plugin_id }}" --out-dir release-build
+        env:
+          PLUGIN_ID: ${{ steps.meta.outputs.plugin_id }}
+        run: node scripts/release/pack.mjs --plugin "$PLUGIN_ID" --out-dir release-build
 
       # Publish the per-plugin Release asset (create the release if the tag push
       # did not already, or for a manual dispatch).
       - name: Publish Release asset
         env:
           GH_TOKEN: ${{ github.token }}
+          PLUGIN_ID: ${{ steps.meta.outputs.plugin_id }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          ASSET_FILE: ${{ steps.meta.outputs.asset }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.meta.outputs.tag }}"
-          ASSET="release-build/${{ steps.meta.outputs.asset }}"
+          ASSET="release-build/${ASSET_FILE}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ASSET" --clobber
           else
             gh release create "$TAG" "$ASSET" \
               --title "$TAG" \
-              --notes "Reproducible signed marketplace artifact for ${{ steps.meta.outputs.plugin_id }} v${{ steps.meta.outputs.version }}."
+              --notes "Reproducible signed marketplace artifact for ${PLUGIN_ID} v${VERSION}."
           fi
 
       # Generate + sign the catalog. The ed25519 PKCS8 PEM is piped on stdin from
@@ -98,6 +112,7 @@ jobs:
       - name: Sign catalog
         env:
           MARKETPLACE_SIGNING_KEY: ${{ secrets.MARKETPLACE_SIGNING_KEY }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [ -z "${MARKETPLACE_SIGNING_KEY:-}" ]; then
@@ -106,7 +121,7 @@ jobs:
           fi
           printf '%s' "$MARKETPLACE_SIGNING_KEY" | node scripts/release/sign-catalog.mjs \
             --build-dir release-build \
-            --asset-base "https://github.com/${{ github.repository }}/releases/download" \
+            --asset-base "https://github.com/${REPOSITORY}/releases/download" \
             --out release-build/catalog.json
 
       # Publish gate: re-download the uploaded asset and assert its digest equals
@@ -116,11 +131,13 @@ jobs:
       - name: Publish-gate self-check
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          ASSET_FILE: ${{ steps.meta.outputs.asset }}
         run: |
           set -euo pipefail
           rm -rf release-verify
-          gh release download "${{ steps.meta.outputs.tag }}" \
-            --pattern "${{ steps.meta.outputs.asset }}" \
+          gh release download "$TAG" \
+            --pattern "$ASSET_FILE" \
             --dir release-verify
           node scripts/release/self-check.mjs \
             --catalog release-build/catalog.json \
