@@ -1,0 +1,134 @@
+name: pages
+
+# Publish the signed marketplace catalog + signed key-ring to GitHub Pages at a
+# stable URL (issue #305). The catalog lists every installable plugin with its
+# per-entry assetUrl + sha256 (over the reproducible Release tarball) and is
+# signed by the operational key; the key-ring is signed by the bootstrap ROOT
+# key and resolves that operational key as 'active'. A key-resolution gate runs
+# before deploy, so a catalog signed by an unknown/revoked key never ships.
+#
+# Out-of-band prerequisites (this workflow only REFERENCES them):
+#   - GitHub Pages is enabled for this repo with "GitHub Actions" as the source.
+#   - Repo secrets MARKETPLACE_SIGNING_KEY (operational ed25519 PKCS8 PEM) and
+#     MARKETPLACE_ROOT_SIGNING_KEY (root ed25519 PKCS8 PEM) are provisioned.
+#
+# Security posture mirrors release.yml: no untrusted `${{ }}` is interpolated
+# into a run: script; GitHub-controlled values and secrets are bound to env vars
+# and referenced as quoted shell variables. Signing keys reach the scripts only
+# on stdin and are never written to disk, echoed, or uploaded.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+    paths:
+      - "plugins/**"
+      - "marketplace/**"
+      - "scripts/release/**"
+      - ".github/workflows/pages.yml"
+
+# Only the Pages deploy needs write; reading the repo is enough otherwise.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deploy mid-publish; serialize concurrent publishes instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      # Pinned toolchain (.nvmrc) + clean install against the committed lockfile:
+      # required for the packed tarball digest to be reproducible.
+      - run: npm ci
+
+      - run: npm run build
+
+      # Pack every installable plugin so the published catalog lists the full set
+      # (per-entry assetUrl + sha256 over the reproducible tarball).
+      - run: node scripts/release/pack.mjs --all --out-dir release-build
+
+      # Derive the public halves of the signing secrets. The private keys stay on
+      # the pipe (never written to disk); only the public PEMs are materialized.
+      - name: Derive public keys
+        env:
+          MARKETPLACE_SIGNING_KEY: ${{ secrets.MARKETPLACE_SIGNING_KEY }}
+          MARKETPLACE_ROOT_SIGNING_KEY: ${{ secrets.MARKETPLACE_ROOT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MARKETPLACE_SIGNING_KEY:-}" ]; then
+            echo "MARKETPLACE_SIGNING_KEY secret is not set; cannot sign the catalog." >&2
+            exit 1
+          fi
+          if [ -z "${MARKETPLACE_ROOT_SIGNING_KEY:-}" ]; then
+            echo "MARKETPLACE_ROOT_SIGNING_KEY secret is not set; cannot sign the key-ring." >&2
+            exit 1
+          fi
+          mkdir -p pages-build
+          printf '%s' "$MARKETPLACE_SIGNING_KEY" | node scripts/release/derive-public-key.mjs > op-pub.pem
+          printf '%s' "$MARKETPLACE_ROOT_SIGNING_KEY" | node scripts/release/derive-public-key.mjs > root-pub.pem
+
+      # Generate + sign the catalog with the operational key (stdin only), applying
+      # revocation from marketplace/key-ring.config.json.
+      - name: Sign catalog
+        env:
+          MARKETPLACE_SIGNING_KEY: ${{ secrets.MARKETPLACE_SIGNING_KEY }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$MARKETPLACE_SIGNING_KEY" | node scripts/release/sign-catalog.mjs \
+            --build-dir release-build \
+            --asset-base "https://github.com/${REPOSITORY}/releases/download" \
+            --revoked-config marketplace/key-ring.config.json \
+            --out pages-build/catalog.json
+
+      # Sign the key-ring with the ROOT key (stdin only). The currently-active
+      # operational key is injected from op-pub.pem so the ring resolves the
+      # catalog's keyId; rotated-out keys come from the committed config.
+      - name: Sign key-ring
+        env:
+          MARKETPLACE_ROOT_SIGNING_KEY: ${{ secrets.MARKETPLACE_ROOT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$MARKETPLACE_ROOT_SIGNING_KEY" | node scripts/release/sign-key-ring.mjs \
+            --config marketplace/key-ring.config.json \
+            --active-key-file op-pub.pem \
+            --out pages-build/key-ring.json
+
+      # Publish gate: the catalog's keyId must resolve to an 'active' key in a
+      # root-signed ring, and the catalog signature must verify against it. A
+      # catalog signed by an unknown/revoked key fails the publish here.
+      - name: Key-resolution gate
+        run: |
+          set -euo pipefail
+          node scripts/release/verify-keyring.mjs \
+            --catalog pages-build/catalog.json \
+            --key-ring pages-build/key-ring.json \
+            --root-key root-pub.pem \
+            --revoked-config marketplace/key-ring.config.json
+
+      # Only the two signed JSON envelopes go to Pages (the tarballs are Release
+      # assets, not Pages content). Served at:
+      #   https://davidpoxon.github.io/roubo-plugins/catalog.json
+      #   https://davidpoxon.github.io/roubo-plugins/key-ring.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-build
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

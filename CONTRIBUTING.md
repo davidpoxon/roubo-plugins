@@ -49,6 +49,50 @@ DCO section below). `npm run build` compiles every plugin under `plugins/*`
 against the published `@roubo` SDK packages. Run the build before opening a PR;
 a PR that does not build will fail review.
 
+## Marketplace key rotation and revocation
+
+The marketplace serves a signed `catalog.json` and a signed `key-ring.json` from
+GitHub Pages. The catalog is signed by a rotating **operational** key; the
+key-ring is signed by the long-lived **root** key the app embeds, and it
+resolves which operational keys are `active`. Because the app trusts only the
+root key and resolves everything else through the signed ring, both **rotating
+an operational key** and **revoking a plugin entry** are data edits plus a
+re-sign plus a republish: no app release, no code change.
+
+`marketplace/key-ring.config.json` is the source of truth. Its `keys` array
+lists operational public keys with a `status` of `active` or `revoked`; its
+`revokedEntryIds` array lists catalog entry ids to delist. The `pages` workflow
+re-signs and republishes on every push to `main` that touches `plugins/`,
+`marketplace/`, or the release scripts, and can also be run by hand from the
+Actions tab.
+
+**Revoke a plugin entry.** Add its id to `revokedEntryIds`, commit, and let the
+`pages` workflow republish. The entry is marked `revoked: true` in the signed
+catalog and the client delists it and blocks install/update at the next refresh.
+
+**Rotate the operational key.** Generate a new ed25519 keypair, update the
+`MARKETPLACE_SIGNING_KEY` repo secret to the new private key, then add the
+**old** key to `keys` with status `revoked` so catalogs it signed are rejected:
+
+```bash
+# public PEM of the rotated-out key, to paste into key-ring.config.json
+node scripts/release/derive-public-key.mjs < old-operational-private.pem
+```
+
+The currently-active operational key is injected into the ring automatically
+from the signing secret, so you do not commit it; you only ever add rotated-out
+keys as `revoked`. The `pages` workflow re-signs the ring with the root key and
+re-signs the catalog with the new operational key.
+
+**Rotate the root key.** This is the one change that **does** require an app
+release, because the app embeds the root public key. Update the
+`MARKETPLACE_ROOT_SIGNING_KEY` secret and ship the new root public key in the
+app.
+
+The signing keys are read on stdin only and are never written to disk or logged.
+The `pages` workflow runs `verify-keyring.mjs` before publishing, so a catalog
+signed by a key the ring does not resolve to `active` fails the publish.
+
 ## Brand and vocabulary
 
 Roubo uses a specific vocabulary: bench, project, component, tool, inspection,

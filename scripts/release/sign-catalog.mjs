@@ -13,35 +13,32 @@
 // mismatch fails loudly rather than emitting an unverifiable catalog (exactly as
 // the app's sign-marketplace-catalog.ts does).
 //
-// Scope: local catalog generation + signing. Hosting the catalog/key-ring on
-// GitHub Pages and key-ring/root-key rotation are a sibling issue and are not
-// done here.
+// Revocation: entries named by the revocation input (the `--revoked` flag or the
+// `revokedEntryIds` list in marketplace/key-ring.config.json) are marked
+// `revoked: true`; the rest of the CatalogEntry shape is unchanged. Revoking is
+// therefore a DATA edit + re-sign + republish, with no app release (CPHM-FR-007
+// / AC4).
+//
+// Scope: local catalog generation + signing (now with revocation). Hosting the
+// catalog/key-ring on GitHub Pages and signing the key-ring with the root key
+// are handled by sign-key-ring.mjs + the pages workflow.
 
 import {
   createPrivateKey,
   createPublicKey,
-  createHash,
   sign as cryptoSign,
   verify as cryptoVerify,
 } from "node:crypto";
-import { readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalPayloadBytes } from "./canonical.mjs";
+import { fingerprintKeyId, readStdin } from "./keys.mjs";
 import { INSTALLABLE_PLUGIN_IDS, integrityOfFile, pluginDirFor, readPluginMeta } from "./pack.mjs";
 
 const CATALOG_SCHEMA_VERSION = 1;
 const DEFAULT_ASSET_BASE = "https://github.com/davidpoxon/roubo-plugins/releases/download";
-
-/** Read the entire stdin stream as a UTF-8 string. */
-async function readStdin() {
-  /** @type {Buffer[]} */
-  const chunks = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(/** @type {Buffer} */ (chunk));
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
+const DEFAULT_KEY_RING_CONFIG = path.resolve("marketplace/key-ring.config.json");
 
 /**
  * GitHub Release asset download URL for a plugin version. Tag = `<id>-v<version>`,
@@ -59,9 +56,9 @@ function assetUrlFor(assetBase, id, version) {
  * single-plugin tag release produces a single-entry catalog and a `--all`
  * dispatch produces the full set.
  *
- * @param {{ buildDir: string, assetBase: string, keyId: string }} opts
+ * @param {{ buildDir: string, assetBase: string, keyId: string, revokedIds?: Set<string> }} opts
  */
-function buildCatalogPayload({ buildDir, assetBase, keyId }) {
+function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set() }) {
   const present = new Set(readdirSync(buildDir).filter((f) => f.endsWith(".tgz")));
 
   const entries = [];
@@ -70,7 +67,8 @@ function buildCatalogPayload({ buildDir, assetBase, keyId }) {
     const fileName = `${meta.id}-${meta.version}.tgz`;
     if (!present.has(fileName)) continue;
     const { integrity } = integrityOfFile(path.join(buildDir, fileName));
-    entries.push({
+    /** @type {Record<string, unknown>} */
+    const entry = {
       id: meta.id,
       name: meta.name,
       kind: meta.kind,
@@ -83,7 +81,12 @@ function buildCatalogPayload({ buildDir, assetBase, keyId }) {
       },
       integrity,
       provenance: `roubo-plugins/plugins/${meta.id}@${meta.version}`,
-    });
+    };
+    // A revoked entry is delisted by the client and blocked from install/update
+    // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
+    // so a non-revoked entry's shape is byte-identical to before.
+    if (revokedIds.has(meta.id)) entry.revoked = true;
+    entries.push(entry);
   }
 
   if (entries.length === 0) {
@@ -104,10 +107,35 @@ function buildCatalogPayload({ buildDir, assetBase, keyId }) {
   };
 }
 
-/** Stable key id: short fingerprint of the SPKI DER of the public key. */
-function fingerprintKeyId(publicKey) {
-  const der = publicKey.export({ type: "spki", format: "der" });
-  return `ed25519-${createHash("sha256").update(der).digest("hex").slice(0, 16)}`;
+/**
+ * Resolve the set of revoked entry ids from the CLI flag and/or the committed
+ * key-ring config. `--revoked a,b` is unioned with `revokedEntryIds` from the
+ * config file (if present), so revocation can be a one-off flag or a durable
+ * data edit in marketplace/key-ring.config.json.
+ *
+ * @param {{ revoked?: string, revokedConfig?: string }} opts
+ * @returns {Set<string>}
+ */
+function resolveRevokedIds({ revoked, revokedConfig }) {
+  /** @type {Set<string>} */
+  const ids = new Set();
+  if (revoked) {
+    for (const id of revoked
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean))
+      ids.add(id);
+  }
+  const configPath = revokedConfig ? path.resolve(revokedConfig) : DEFAULT_KEY_RING_CONFIG;
+  if (existsSync(configPath)) {
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    if (Array.isArray(config.revokedEntryIds)) {
+      for (const id of config.revokedEntryIds) {
+        if (typeof id === "string" && id.trim()) ids.add(id.trim());
+      }
+    }
+  }
+  return ids;
 }
 
 /** Parse `--flag value` / `--flag=value` argv into a map. */
@@ -146,7 +174,12 @@ async function main() {
   const publicKey = createPublicKey(privateKey);
   const keyId = args["key-id"] ?? process.env.MARKETPLACE_KEY_ID ?? fingerprintKeyId(publicKey);
 
-  const payload = buildCatalogPayload({ buildDir, assetBase, keyId });
+  const revokedIds = resolveRevokedIds({
+    revoked: args.revoked,
+    revokedConfig: args["revoked-config"],
+  });
+
+  const payload = buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds });
   const bytes = canonicalPayloadBytes(payload);
   const signature = cryptoSign(null, bytes, privateKey).toString("base64");
 
@@ -160,10 +193,11 @@ async function main() {
   }
 
   writeFileSync(outPath, `${JSON.stringify({ payload, signature }, null, 2)}\n`, "utf8");
-  // Report the catalog path and entry count only. The key, the PEM, and the
-  // signature inputs are never printed (AC3).
+  // Report the catalog path, entry count, and how many entries are revoked.
+  // The key, the PEM, and the signature inputs are never printed (AC3).
+  const revokedCount = payload.entries.filter((e) => e.revoked).length;
   process.stdout.write(
-    `Wrote signed catalog ${outPath} (keyId ${keyId}, ${payload.entries.length} entr${payload.entries.length === 1 ? "y" : "ies"})\n`,
+    `Wrote signed catalog ${outPath} (keyId ${keyId}, ${payload.entries.length} entr${payload.entries.length === 1 ? "y" : "ies"}, ${revokedCount} revoked)\n`,
   );
 }
 
