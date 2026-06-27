@@ -1,0 +1,80 @@
+id: database
+name: Database
+version: 0.1.0
+description: Bundled component plugin that provisions a docker-backed database for a bench.
+kind: component
+roubo: ^1.0.0
+entry: ./dist/index.js
+contractVersion: 1
+descriptorSchemaVersion: 1
+configSchema:
+  type: object
+  required:
+    - composeFile
+    - service
+  properties:
+    composeFile:
+      type: string
+      minLength: 1
+      description: Path (relative to the workspace) to the docker-compose file that defines the database service.
+    service:
+      type: string
+      minLength: 1
+      description: The compose service name brought up for this component.
+    initService:
+      type: string
+      minLength: 1
+      description: Optional compose service run once (via `compose run --rm`) before the database is considered ready (e.g. a seed/init step).
+    portEnvVar:
+      type: string
+      minLength: 1
+      description: The env var name the allocated host port is interpolated into for compose. Defaults to `HOST_PORT`.
+    migration:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          minLength: 1
+          description: The migration command run once the service is healthy.
+        args:
+          type: array
+          items:
+            type: string
+          description: Extra arguments appended to the migration command.
+      additionalProperties: false
+      description: Optional migration run after the service becomes healthy (and after the init service, when present).
+    connection:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          type: string
+          minLength: 1
+          description: A connection-string template; `{{port}}` and `{{ports.<component>}}` are filled with the allocated host port by the engine.
+      additionalProperties: false
+      description: Optional connection string exposed for the component, templated with the allocated port.
+    env:
+      type: object
+      additionalProperties:
+        type: string
+      description: Environment variables merged into the compose interpolation environment (and the migration process env) alongside the allocated port.
+  # `dependsOn` is intentionally absent: it is a component entry-level field
+  # (sibling to `config`) that core validates and uses for start/stop ordering,
+  # never part of the plugin's opaque `config`. See `ComponentConfigSchema`.
+permissions:
+  network:
+    hosts: []
+  credentials:
+    slots: []
+  filesystem:
+    paths: []
+  # Declarative plugin: translate() only emits a ProvisionDescriptor and never
+  # drives the host docker broker, so the plugin itself starts no container (AC6).
+  # The host LifecycleEngine owns the docker phase machine (composeUp ->
+  # waitForHealthy -> initService -> migration -> connection templating).
+  processes: false
+  ports: false
+  docker: true

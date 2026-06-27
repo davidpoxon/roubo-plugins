@@ -1,0 +1,36 @@
+{
+  "with-security-events": {
+    "Server": "GitHub.com",
+    "Date": "Sun, 25 May 2026 00:00:00 GMT",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-OAuth-Scopes": "repo, gist, read:org, security_events",
+    "X-Accepted-OAuth-Scopes": "",
+    "X-GitHub-Media-Type": "github.v3",
+    "X-RateLimit-Limit": "5000",
+    "X-RateLimit-Remaining": "4999",
+    "X-RateLimit-Reset": "1748131200"
+  },
+  "without-security-events": {
+    "Server": "GitHub.com",
+    "Date": "Sun, 25 May 2026 00:00:00 GMT",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-OAuth-Scopes": "repo, gist, read:org",
+    "X-Accepted-OAuth-Scopes": "",
+    "X-RateLimit-Limit": "5000",
+    "X-RateLimit-Remaining": "4999"
+  },
+  "fine-grained-pat": {
+    "Server": "GitHub.com",
+    "Date": "Sun, 25 May 2026 00:00:00 GMT",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-RateLimit-Limit": "5000",
+    "X-RateLimit-Remaining": "4999"
+  },
+  "empty-scopes": {
+    "Server": "GitHub.com",
+    "Date": "Sun, 25 May 2026 00:00:00 GMT",
+    "Content-Type": "application/json; charset=utf-8",
+    "X-OAuth-Scopes": "",
+    "X-Accepted-OAuth-Scopes": ""
+  }
+}

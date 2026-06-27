@@ -1,0 +1,51 @@
+id: process
+name: Process
+version: 0.1.0
+description: Bundled component plugin that supervises a long-running process for a bench.
+kind: component
+roubo: ^1.0.0
+entry: ./dist/index.js
+contractVersion: 1
+descriptorSchemaVersion: 1
+configSchema:
+  type: object
+  required:
+    - command
+  properties:
+    command:
+      type: string
+      minLength: 1
+      description: The command line started in the bench workspace (or `directory`) to run the process.
+    setup:
+      type: string
+      minLength: 1
+      description: Optional one-time setup command run before the first start (e.g. `npm install`). Skipped on a Stop -> Start cycle.
+    env:
+      type: object
+      additionalProperties:
+        type: string
+      description: Environment variables injected into the spawned process. Win over `envFile` on conflict.
+    envFile:
+      type: string
+      minLength: 1
+      description: Path (relative to the workspace) to a KEY=VALUE env file merged into the process environment.
+    directory:
+      type: string
+      minLength: 1
+      description: Working directory (relative to the workspace) the command runs in. Defaults to the workspace root.
+  # `dependsOn` is intentionally absent: it is a component entry-level field
+  # (sibling to `config`) that core validates and uses for start/stop ordering,
+  # never part of the plugin's opaque `config`. See `ComponentConfigSchema`.
+permissions:
+  network:
+    hosts: []
+  credentials:
+    slots: []
+  filesystem:
+    paths: []
+  # Declarative plugin: translate() only emits a ProvisionDescriptor and never
+  # drives the host process broker, so the plugin itself spawns nothing (AC5).
+  # The host LifecycleEngine owns starting the descriptor's command.
+  processes: false
+  ports: false
+  docker: false

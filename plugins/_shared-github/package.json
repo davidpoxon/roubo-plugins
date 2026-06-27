@@ -1,0 +1,21 @@
+{
+  "name": "@roubo/shared-github",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Internal helpers shared by the bundled GitHub.com and GitHub Enterprise plugins. Not part of the public plugin SDK.",
+  "author": "David Poxon",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup && tsc --build"
+  },
+  "dependencies": {
+    "@roubo/plugin-sdk": "0.1.1"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
+  }
+}
