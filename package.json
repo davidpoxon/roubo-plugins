@@ -20,6 +20,7 @@
     "release:sign-keyring": "node scripts/release/sign-key-ring.mjs",
     "release:verify-keyring": "node scripts/release/verify-keyring.mjs",
     "release:self-check": "node scripts/release/self-check.mjs",
+    "test": "node --test \"scripts/release/**/*.test.mjs\"",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier --write .",
