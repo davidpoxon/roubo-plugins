@@ -1,0 +1,5 @@
+{
+  "_comment": "Source of truth for the marketplace key-ring and catalog revocation. Editing this file, re-signing, and republishing rotates operational keys and revokes entries WITHOUT an app release (no code change). See CONTRIBUTING.md 'Marketplace key rotation and revocation'. The currently-active operational key is injected by the pages workflow from the signing secret, so it need not be listed here; add a ROTATED-OUT operational key here with status 'revoked' so catalogs signed by it are rejected. Each key needs publicKeyPem (SPKI PEM) and status ('active' | 'revoked'); keyId is derived from the public key and may be omitted.",
+  "keys": [],
+  "revokedEntryIds": []
+}

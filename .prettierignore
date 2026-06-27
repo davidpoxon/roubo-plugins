@@ -3,6 +3,7 @@ node_modules
 **/dist
 release-build
 release-verify
+pages-build
 package-lock.json
 **/*.min.js
 *.tsbuildinfo

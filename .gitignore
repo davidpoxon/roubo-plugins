@@ -6,6 +6,10 @@ dist/
 release-build/
 release-verify/
 
+# Pages publish scratch output (signed catalog + key-ring) and derived public keys
+pages-build/
+*-pub.pem
+
 # Local tooling state, never committed
 .roubo/
 .ship/
