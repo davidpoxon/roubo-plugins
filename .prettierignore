@@ -1,6 +1,8 @@
 node_modules
 **/node_modules
 **/dist
+release-build
+release-verify
 package-lock.json
 **/*.min.js
 *.tsbuildinfo

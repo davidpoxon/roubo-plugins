@@ -2,6 +2,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Release build/verify scratch output (generated tarballs + signed catalog)
+release-build/
+release-verify/
+
 # Local tooling state, never committed
 .roubo/
 .ship/

@@ -1,0 +1,144 @@
+name: release
+
+# Build, sign, and publish a per-plugin marketplace artifact with a reproducible
+# digest (issue #304). Triggered by a per-plugin version tag `<id>-v<version>`
+# (e.g. `github-com-v0.1.0`) or manually for a chosen plugin. The job builds the
+# plugin, packs a normalized byte-stable tarball, uploads it as a GitHub Release
+# asset, generates + signs the catalog, then runs a publish-gate self-check that
+# re-downloads the uploaded asset and fails the release on a digest mismatch.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: Plugin id to build, sign, and publish
+        required: true
+        type: choice
+        options:
+          - database
+          - ghe
+          - github-com
+          - jira-self-hosted
+          - process
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      # Pinned toolchain (.nvmrc 24.15.0) + clean install against the committed
+      # lockfile: required for the packed tarball digest to be reproducible.
+      - run: npm ci
+
+      - run: npm run build
+
+      # Resolve the target plugin id and version. For a tag push the ref is
+      # `<id>-v<version>`; the id may contain hyphens (github-com), so split on
+      # the LAST `-v`. For a manual dispatch the id is the chosen input and the
+      # version comes from package.json.
+      - name: Resolve plugin and version
+        id: meta
+        # `${{ }}` values are never interpolated into the run: script text (they
+        # are expanded before the shell parses, so a crafted tag name could inject
+        # a command substitution). They are bound to env vars and referenced as
+        # quoted shell variables instead. github.event_name is GitHub-controlled
+        # and inputs.plugin is a constrained choice, but both are env-bound here
+        # for a consistent no-untrusted-interpolation posture.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PLUGIN_INPUT: ${{ inputs.plugin }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PLUGIN_ID="$PLUGIN_INPUT"
+            VERSION="$(node -p "require('./plugins/${PLUGIN_ID}/package.json').version")"
+            TAG="${PLUGIN_ID}-v${VERSION}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            PLUGIN_ID="$(printf '%s' "$TAG" | sed -E 's/-v[0-9].*$//')"
+            VERSION="$(printf '%s' "$TAG" | sed -E 's/^.*-v//')"
+          fi
+          echo "plugin_id=${PLUGIN_ID}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "asset=${PLUGIN_ID}-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "Resolved plugin=${PLUGIN_ID} version=${VERSION} tag=${TAG}"
+
+      # Build the normalized, reproducible tarball and print its digest.
+      - name: Pack artifact
+        env:
+          PLUGIN_ID: ${{ steps.meta.outputs.plugin_id }}
+        run: node scripts/release/pack.mjs --plugin "$PLUGIN_ID" --out-dir release-build
+
+      # Publish the per-plugin Release asset (create the release if the tag push
+      # did not already, or for a manual dispatch).
+      - name: Publish Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLUGIN_ID: ${{ steps.meta.outputs.plugin_id }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          ASSET_FILE: ${{ steps.meta.outputs.asset }}
+        run: |
+          set -euo pipefail
+          ASSET="release-build/${ASSET_FILE}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "$TAG" \
+              --notes "Reproducible signed marketplace artifact for ${PLUGIN_ID} v${VERSION}."
+          fi
+
+      # Generate + sign the catalog. The ed25519 PKCS8 PEM is piped on stdin from
+      # the CI secret only: never written to disk, never echoed, never an
+      # artifact. The signing key env is scoped to this step alone.
+      - name: Sign catalog
+        env:
+          MARKETPLACE_SIGNING_KEY: ${{ secrets.MARKETPLACE_SIGNING_KEY }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MARKETPLACE_SIGNING_KEY:-}" ]; then
+            echo "MARKETPLACE_SIGNING_KEY secret is not set; cannot sign the catalog." >&2
+            exit 1
+          fi
+          printf '%s' "$MARKETPLACE_SIGNING_KEY" | node scripts/release/sign-catalog.mjs \
+            --build-dir release-build \
+            --asset-base "https://github.com/${REPOSITORY}/releases/download" \
+            --out release-build/catalog.json
+
+      # Publish gate: re-download the uploaded asset and assert its digest equals
+      # the catalog entry. A mismatch fails the release (reports expected vs
+      # actual). Downloading the uploaded asset (not the local build output) is
+      # what makes this a true publish gate over the bytes users will fetch.
+      - name: Publish-gate self-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          ASSET_FILE: ${{ steps.meta.outputs.asset }}
+        run: |
+          set -euo pipefail
+          rm -rf release-verify
+          gh release download "$TAG" \
+            --pattern "$ASSET_FILE" \
+            --dir release-verify
+          node scripts/release/self-check.mjs \
+            --catalog release-build/catalog.json \
+            --asset-dir release-verify
