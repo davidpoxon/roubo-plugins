@@ -1,15 +1,10 @@
 name: dco-comment
 
-# Privileged follow-up to the dco check. workflow_run always runs the workflow
-# file from the repository's default branch in the trusted base context, never
-# fork code, so it can safely hold `pull-requests: write` and post the sticky
-# comment that the read-only pull_request job cannot. This is what gives external
-# (fork) PRs the same explanatory comment internal PRs get.
-#
-# The downloaded artifact is treated as untrusted DATA: the PR number is
-# re-derived from the run's head SHA via the API (not read from the artifact),
-# and the artifact is only ever rendered into a comment body, never executed.
-
+# Thin caller for roubo's shared, reusable privileged DCO comment workflow.
+# roubo is the single source of truth for the comment logic; this stub owns the
+# workflow_run trigger and passes the run-id / head-sha the reusable workflow
+# needs. The privileged workflow_run context runs from this repo's default
+# branch, so it can hold pull-requests: write and comment on fork PRs.
 on:
   workflow_run:
     workflows: [dco]
@@ -22,80 +17,8 @@ permissions:
 
 jobs:
   comment:
-    name: Post DCO comment
-    runs-on: ubuntu-latest
     if: github.event.workflow_run.event == 'pull_request'
-    steps:
-      - name: Download verdict artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: dco-verdict
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: verdict
-
-      - name: Post, update, or clear the sticky comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-
-          marker='<!-- dco-sticky-comment -->'
-
-          # Re-derive the PR from the head SHA in the trusted base context rather
-          # than trusting the artifact's pr-number.txt: on a fork PR the check job
-          # ran fork-controlled workflow code, so its recorded PR number is not
-          # trustworthy. Associating the head SHA with an open PR in THIS repo
-          # guarantees we only ever comment on the PR the run actually belongs to.
-          pr_number=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-            --jq '[.[] | select(.state == "open")] | .[0].number // empty')
-
-          if [ -z "$pr_number" ]; then
-            echo "No open PR found for ${HEAD_SHA}; nothing to comment on."
-            exit 0
-          fi
-          case "$pr_number" in
-            '' | *[!0-9]*)
-              echo "Resolved PR number '${pr_number}' is not numeric; refusing to proceed."
-              exit 1
-              ;;
-          esac
-
-          result=$(tr -d '[:space:]' < verdict/result.txt 2>/dev/null || true)
-
-          find_existing() {
-            gh api --paginate "repos/${REPO}/issues/${pr_number}/comments" \
-              --jq "map(select(.body | contains(\"${marker}\"))) | .[0].id // empty"
-          }
-
-          if [ "$result" = "missing" ]; then
-            if [ ! -f verdict/dco-comment.md ]; then
-              echo "::warning::result was 'missing' but no comment body artifact was found; skipping."
-              exit 0
-            fi
-            existing_id=$(find_existing)
-            if [ -n "$existing_id" ]; then
-              gh api --method PATCH \
-                "repos/${REPO}/issues/comments/${existing_id}" \
-                -F body=@verdict/dco-comment.md > /dev/null
-              echo "Updated existing sticky comment id=${existing_id} on PR #${pr_number}."
-            else
-              gh pr comment "$pr_number" --repo "$REPO" --body-file verdict/dco-comment.md
-              echo "Posted new sticky comment on PR #${pr_number}."
-            fi
-          else
-            # Success (or unknown verdict): clear any stale sticky comment so a
-            # fixed PR does not keep showing the old failure note.
-            existing_id=$(find_existing)
-            if [ -n "$existing_id" ]; then
-              if gh api --method DELETE "repos/${REPO}/issues/comments/${existing_id}" > /dev/null; then
-                echo "Deleted stale sticky comment id=${existing_id} on PR #${pr_number}."
-              else
-                echo "::warning::Failed to delete stale sticky comment id=${existing_id}."
-              fi
-            else
-              echo "No stale sticky comment to clear on PR #${pr_number}."
-            fi
-          fi
+    uses: davidpoxon/roubo/.github/workflows/dco-comment-reusable.yml@main
+    with:
+      run-id: ${{ github.event.workflow_run.id }}
+      head-sha: ${{ github.event.workflow_run.head_sha }}
