@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { FetchResult } from "@roubo/plugin-sdk";
 import { fetchCodeScanningAlert } from "../alerts/code-scanning.js";
 import { fetchDependabotAlert } from "../alerts/dependabot.js";
 import { fetchSecretScanningAlert } from "../alerts/secret-scanning.js";
@@ -7,7 +7,7 @@ import { mapSecretScanningAlertToNormalizedIssue } from "../mapper.js";
 import { AlertPaginationError } from "../pagination.js";
 
 function makeTransport(map: Record<string, FetchResult>) {
-  return vi.fn(async (url: string, _init?: FetchInit): Promise<FetchResult> => {
+  return vi.fn(async (url: string): Promise<FetchResult> => {
     const res = map[url];
     if (!res) throw new Error(`unexpected url ${url}`);
     return res;

@@ -16,10 +16,6 @@ export default tseslint.config(
     languageOptions: {
       globals: globals.node,
     },
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-      "no-console": "off",
-    },
   },
 
   // JS/MJS/CJS scripts: Node.js environment
@@ -28,17 +24,6 @@ export default tseslint.config(
     extends: [js.configs.recommended],
     languageOptions: {
       globals: globals.node,
-    },
-    rules: {
-      "no-console": "off",
-    },
-  },
-
-  // Test files: relax rules for mocks/stubs
-  {
-    files: ["**/*.test.ts", "**/__tests__/**/*.ts"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 

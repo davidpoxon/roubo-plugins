@@ -20,6 +20,7 @@ import { resetOctokit } from "../octokit-factory.js";
 export function setActiveConfigMethod(_params: {
   config: Record<string, unknown>;
 }): SetActiveConfigResult {
+  void _params;
   resetAlertsRuntime();
   resetOctokit();
   return { ok: true };

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { FetchResult } from "@roubo/plugin-sdk";
 import {
   probeAlertCategories,
   type ProbeCategory,
@@ -15,7 +15,7 @@ const SECRET_URL = `${BASE}/repos/${OWNER}/${REPO}/secret-scanning/alerts?per_pa
 const DEP_URL = `${BASE}/repos/${OWNER}/${REPO}/dependabot/alerts?per_page=1`;
 
 function makeTransport(map: Record<string, FetchResult | (() => Promise<FetchResult>)>) {
-  return vi.fn(async (url: string, _init?: FetchInit): Promise<FetchResult> => {
+  return vi.fn(async (url: string): Promise<FetchResult> => {
     const entry = map[url];
     if (!entry) throw new Error(`unexpected url ${url}`);
     if (typeof entry === "function") return entry();

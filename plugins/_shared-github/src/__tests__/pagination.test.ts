@@ -39,7 +39,7 @@ describe("parseLinkHeader", () => {
 describe("paginateAlerts", () => {
   it("walks Link: rel=next until exhausted and concats pages", async () => {
     const calls: string[] = [];
-    const transport = vi.fn(async (url: string, _init?: FetchInit): Promise<FetchResult> => {
+    const transport = vi.fn(async (url: string): Promise<FetchResult> => {
       calls.push(url);
       if (url.endsWith("?state=open&per_page=2&page=1")) {
         return {
