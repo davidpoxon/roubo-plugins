@@ -66,8 +66,11 @@ lightweight declaration that you wrote the change, or have the right to
 contribute it under this project's licence (Apache 2.0). The full text is
 below.
 
-The DCO is enforced automatically. A pull request with any unsigned
-commits will be blocked from merging until every commit is signed off.
+The DCO is enforced automatically. A pull request with any unsigned commits
+will be blocked from merging until every commit is signed off. The check runs
+via the `dco` workflow, which calls the shared, reusable DCO workflow
+maintained in [davidpoxon/roubo](https://github.com/davidpoxon/roubo) so the
+sign-off rules stay identical across the Roubo repositories.
 
 When you run `npm install` in your clone, the `prepare` script configures a
 local `commit-msg` git hook that rejects commits missing a `Signed-off-by:`
@@ -99,18 +102,19 @@ when you pass `-s`.
 ### Maintainer setup (one-time)
 
 The DCO workflow is the gate, but it only matters if GitHub treats it as
-required. On the `main` branch protection rule, add `DCO sign-off` (the
-job name in `.github/workflows/dco.yml`) to the list of required status
-checks. Without this, the check can go red and a maintainer can still
-click merge; with it, the merge button stays disabled until every commit
-is signed off.
+required. On the `main` branch protection rule, add the `DCO sign-off` check
+(surfaced as `dco / DCO sign-off`, from `.github/workflows/dco.yml`) to the list
+of required status checks. Without this, the check can go red and a maintainer
+can still click merge; with it, the merge button stays disabled until every
+commit is signed off.
 
 ### Bot exemption
 
-Automated dependency-update bots (currently Dependabot) are exempt from
-the per-commit sign-off requirement. The DCO is an attestation of human
-authorship; a bot cannot meaningfully attest to that. The allowlist of
-exempt author emails lives in [.github/workflows/dco.yml](.github/workflows/dco.yml).
+Automated dependency-update bots (currently Dependabot) are exempt from the
+per-commit sign-off requirement. The DCO is an attestation of human authorship;
+a bot cannot meaningfully attest to that. The allowlist of exempt author emails
+lives in the shared reusable workflow in
+[davidpoxon/roubo](https://github.com/davidpoxon/roubo/blob/main/.github/workflows/dco-reusable.yml).
 
 ### If you forgot to sign off
 
