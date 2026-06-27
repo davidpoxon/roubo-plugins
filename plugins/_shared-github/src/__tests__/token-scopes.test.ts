@@ -29,8 +29,7 @@ function fixtureResponse(name: keyof typeof fixtures, status = 200): FetchResult
 describe("detectTokenScopes", () => {
   it("returns the parsed scope list when X-OAuth-Scopes is present (with security_events)", async () => {
     const transport = vi.fn(
-      async (_url: string, _init?: FetchInit): Promise<FetchResult> =>
-        fixtureResponse("with-security-events"),
+      async (): Promise<FetchResult> => fixtureResponse("with-security-events"),
     );
 
     const result = await detectTokenScopes(transport, "https://api.github.com");

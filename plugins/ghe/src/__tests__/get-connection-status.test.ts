@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { FetchResult } from "@roubo/plugin-sdk";
 import { setActiveConfig } from "../active-config.js";
 import {
   __resetHasAlertCategoryEnabled,
@@ -14,7 +14,7 @@ function queueUserResponse(
   status = 200,
 ): void {
   mocks.mockHost.fetch.mockImplementationOnce(
-    async (_url: string, _init?: FetchInit): Promise<FetchResult> => ({
+    async (): Promise<FetchResult> => ({
       status,
       headers,
       body: JSON.stringify({ login: "octocat", id: 1 }),

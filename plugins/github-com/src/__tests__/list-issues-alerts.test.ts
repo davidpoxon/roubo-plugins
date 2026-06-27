@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ConfiguredSource, FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { ConfiguredSource, FetchResult } from "@roubo/plugin-sdk";
 import { listIssues } from "../methods/list-issues.js";
 import { resetAlertsRuntime } from "../alerts-runtime.js";
 import { installMocks, okResponse, teardownMocks } from "./helpers.js";
@@ -30,7 +30,7 @@ const SECRET_URL =
 const DEP_URL = "https://api.github.com/repos/foo/bar/dependabot/alerts?state=open&per_page=50";
 
 function queueHostResponses(map: Record<string, FetchResult>) {
-  mocks.mockHost.fetch.mockImplementation(async (url: string, _init?: FetchInit) => {
+  mocks.mockHost.fetch.mockImplementation(async (url: string) => {
     const r = map[url];
     if (!r) throw new Error(`unexpected url ${url}`);
     return r;

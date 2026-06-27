@@ -12,7 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ConfiguredSource, FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { ConfiguredSource, FetchResult } from "@roubo/plugin-sdk";
 import { decodeCompositeCursor } from "@roubo/shared-github";
 import { listIssues } from "../methods/list-issues.js";
 import { resetAlertsRuntime } from "../alerts-runtime.js";
@@ -54,7 +54,7 @@ describe("listIssues multi-source aggregation", () => {
     // Both repos have empty issue pages; each has one open Dependabot alert.
     queueEmptyIssuesPage(); // root issues
     queueEmptyIssuesPage(); // submodule issues
-    mocks.mockHost.fetch.mockImplementation(async (url: string, _init?: FetchInit) => {
+    mocks.mockHost.fetch.mockImplementation(async (url: string) => {
       if (url === ROOT_DEP_URL) {
         return {
           status: 200,
@@ -135,7 +135,7 @@ describe("listIssues multi-source aggregation", () => {
     // warning while the submodule's alert still reaches the cut list.
     mocks.mockOctokit.request.mockRejectedValueOnce(new Error("root issues boom")); // root issues -> throw
     queueEmptyIssuesPage(); // submodule issues -> empty
-    mocks.mockHost.fetch.mockImplementation(async (url: string, _init?: FetchInit) => {
+    mocks.mockHost.fetch.mockImplementation(async (url: string) => {
       if (url === WEB_DEP_URL) {
         return {
           status: 200,

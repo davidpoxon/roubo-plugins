@@ -20,7 +20,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ConfiguredSource, FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { ConfiguredSource, FetchResult } from "@roubo/plugin-sdk";
 import { listIssues } from "../methods/list-issues.js";
 import { resetAlertsRuntime, SCOPE_UNVERIFIABLE_CAUSE } from "../alerts-runtime.js";
 import { setActiveConfig } from "../active-config.js";
@@ -40,7 +40,7 @@ const SECRET_URL = `${BASE}/repos/foo/bar/secret-scanning/alerts?state=open&per_
 const DEP_URL = `${BASE}/repos/foo/bar/dependabot/alerts?state=open&per_page=50`;
 
 function queueHostResponses(map: Record<string, FetchResult>) {
-  mocks.mockHost.fetch.mockImplementation(async (url: string, _init?: FetchInit) => {
+  mocks.mockHost.fetch.mockImplementation(async (url: string) => {
     const r = map[url];
     if (!r) throw new Error(`unexpected url ${url}`);
     return r;

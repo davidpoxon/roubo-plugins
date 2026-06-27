@@ -16,11 +16,13 @@ export interface MockHost {
 }
 
 export function buildMockHost(initialToken: string | null = "ghp_test_token"): MockHost {
-  const fetchMock = vi.fn(async (_url: string, _init?: FetchInit): Promise<FetchResult> => {
+  const fetchMock = vi.fn<(url: string, init?: FetchInit) => Promise<FetchResult>>(async () => {
     throw new Error("[test] host.fetch invoked without a queued response");
   });
-  const credentialsGet = vi.fn(async (_slot: string): Promise<string | null> => initialToken);
-  const credentialsSet = vi.fn(async (_slot: string, _value: string): Promise<void> => undefined);
+  const credentialsGet = vi.fn<(slot: string) => Promise<string | null>>(async () => initialToken);
+  const credentialsSet = vi.fn<(slot: string, value: string) => Promise<void>>(
+    async () => undefined,
+  );
   const loggerInfo = vi.fn();
   const loggerWarn = vi.fn();
   const loggerError = vi.fn();

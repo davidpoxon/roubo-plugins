@@ -18,7 +18,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import type { ConfiguredSource, FetchInit, FetchResult } from "@roubo/plugin-sdk";
+import type { ConfiguredSource, FetchResult } from "@roubo/plugin-sdk";
 import { listIssues } from "../methods/list-issues.js";
 import { resetAlertsRuntime } from "../alerts-runtime.js";
 import { resetCaches } from "../github-request.js";
@@ -137,7 +137,7 @@ function wireMocks(alertsEnabled: boolean) {
       }
     }
   }
-  mocks.mockHost.fetch.mockImplementation(async (url: string, _init?: FetchInit) => {
+  mocks.mockHost.fetch.mockImplementation(async (url: string) => {
     const r = alertResponses.get(url);
     if (!r) throw new Error(`unexpected alert url ${url}`);
     return r;
