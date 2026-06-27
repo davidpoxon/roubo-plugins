@@ -12,7 +12,7 @@ The Roubo plugins run entirely on your computer, inside the Roubo application th
 
 This policy applies to the integration and component plugins whose source lives in this repository. Throughout this document, "the Roubo project" refers to the maintainers of the open source repositories at [github.com/davidpoxon/roubo](https://github.com/davidpoxon/roubo) and [github.com/davidpoxon/roubo-plugins](https://github.com/davidpoxon/roubo-plugins), and "you" refers to the person running Roubo with these plugins installed.
 
-The Roubo desktop application that hosts these plugins, and the "Roubo for Github" OAuth App it uses, are covered by the [Roubo privacy policy](https://github.com/davidpoxon/roubo/blob/main/PRIVACY.md). Where a plugin relies on a credential or token, that credential is managed by the host application and handled as described there.
+The Roubo desktop application that hosts these plugins, and the "Roubo for Github" OAuth App it uses, are covered by the [Roubo privacy policy](https://github.com/davidpoxon/roubo/blob/main/PRIVACY.md). Where a plugin relies on a credential or token, that credential is provided and stored locally by the host application and sent only to the service the plugin is configured to reach. The linked policy describes this handling for the GitHub.com OAuth token; credentials for a GitHub Enterprise Server or self-hosted Jira instance are managed locally by the host application in the same way.
 
 ## What the plugins are
 

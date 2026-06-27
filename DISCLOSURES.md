@@ -15,7 +15,7 @@ The Roubo plugins are open-source software that runs entirely on the developer's
 
 ## Credential handling
 
-The plugins do not store credentials themselves. Where a plugin needs a token or credential to reach an external service, that credential is provided and stored by the host Roubo application and handled as described in the [Roubo privacy policy](https://github.com/davidpoxon/roubo/blob/main/PRIVACY.md). Credentials are sent only in the authentication headers of HTTPS requests from the user's machine to the configured service.
+The plugins do not store credentials themselves. Where a plugin needs a token or credential to reach an external service, that credential is provided and stored locally by the host Roubo application. The [Roubo privacy policy](https://github.com/davidpoxon/roubo/blob/main/PRIVACY.md) describes this for the GitHub.com OAuth token; credentials for a GitHub Enterprise Server or self-hosted Jira instance are stored locally by the host application in the same way. Credentials are sent only in the authentication headers of HTTPS requests from the user's machine to the configured service.
 
 ## Risk management and safety
 
