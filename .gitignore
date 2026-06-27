@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local tooling state, never committed
+.roubo/
+.ship/

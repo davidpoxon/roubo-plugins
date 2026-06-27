@@ -1,0 +1,25 @@
+{
+  "name": "@roubo/plugin-database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bundled Roubo component plugin that provisions a docker-backed database for a bench.",
+  "author": "David Poxon",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "roubo-plugin.yaml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --noEmit && tsup"
+  },
+  "dependencies": {
+    "@roubo/plugin-sdk": "0.1.1"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,25 @@
+[
+  {
+    "number": 11,
+    "created_at": "2026-05-19T08:00:00Z",
+    "updated_at": "2026-05-19T08:00:00Z",
+    "html_url": "https://github.com/wday-planning/roubo/security/dependabot/11",
+    "state": "open",
+    "dependency": {
+      "package": { "ecosystem": "npm", "name": "left-pad" },
+      "manifest_path": "package.json",
+      "scope": "runtime"
+    },
+    "security_advisory": {
+      "ghsa_id": "GHSA-xxxx-yyyy-zzzz",
+      "cve_id": "CVE-2026-9999",
+      "summary": "Prototype pollution in left-pad",
+      "severity": "high"
+    },
+    "security_vulnerability": {
+      "severity": "high",
+      "package": { "ecosystem": "npm", "name": "left-pad" },
+      "first_patched_version": { "identifier": "2.0.0" }
+    }
+  }
+]

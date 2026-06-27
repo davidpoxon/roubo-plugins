@@ -1,0 +1,40 @@
+[
+  {
+    "number": 42,
+    "created_at": "2026-05-20T10:00:00Z",
+    "updated_at": "2026-05-21T11:00:00Z",
+    "html_url": "https://github.com/wday-planning/roubo/security/code-scanning/42",
+    "state": "open",
+    "rule": {
+      "id": "js/sql-injection",
+      "name": "js/sql-injection",
+      "description": "Database query built from user-controlled sources",
+      "severity": "error",
+      "security_severity_level": "high"
+    },
+    "tool": { "name": "CodeQL", "version": "2.19.4" },
+    "most_recent_instance": {
+      "ref": "refs/heads/main",
+      "state": "open",
+      "commit_sha": "abc123",
+      "location": {
+        "path": "server/services/database.ts",
+        "start_line": 84,
+        "end_line": 84,
+        "start_column": 12,
+        "end_column": 48,
+        "snippet": "const q = `SELECT * FROM users WHERE id = ${userId}`;"
+      },
+      "message": { "text": "This query depends on user-controlled value." }
+    },
+    "instances": [
+      {
+        "location": {
+          "path": "server/services/database.ts",
+          "start_line": 84,
+          "snippet": "const q = `SELECT * FROM users WHERE id = ${userId}`;"
+        }
+      }
+    ]
+  }
+]

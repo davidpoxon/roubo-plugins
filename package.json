@@ -1,0 +1,21 @@
+{
+  "name": "roubo-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Source for the Roubo integration and component plugins, built against the published @roubo SDK packages.",
+  "author": "David Poxon",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.14.0"
+  },
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-ghe && npm run build -w @roubo/plugin-jira-self-hosted && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.1"
+  }
+}
