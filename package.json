@@ -14,9 +14,19 @@
   ],
   "scripts": {
     "prepare": "node -e \"try{require('child_process').execSync('git rev-parse --git-dir',{stdio:'ignore'});require('child_process').execSync('git config core.hooksPath scripts/git-hooks',{stdio:'inherit'});require('fs').chmodSync('scripts/git-hooks/commit-msg',0o755)}catch{}\"",
-    "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-ghe && npm run build -w @roubo/plugin-jira-self-hosted && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database"
+    "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-ghe && npm run build -w @roubo/plugin-jira-self-hosted && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@types/node": "25.9.1"
+    "@eslint/js": "10.0.1",
+    "@types/node": "25.9.1",
+    "eslint": "10.4.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.6.0",
+    "prettier": "3.8.3",
+    "typescript-eslint": "8.60.0"
   }
 }
