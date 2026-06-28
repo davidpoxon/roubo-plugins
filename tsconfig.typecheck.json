@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "types": ["node"],
+    "paths": {
+      "@roubo/shared-github": ["./plugins/_shared-github/src/index.ts"]
+    }
+  },
+  "include": ["plugins/*/src/**/*.ts"],
+  "exclude": ["**/dist/**", "**/*.test.ts", "**/__tests__/**", "node_modules"]
+}
