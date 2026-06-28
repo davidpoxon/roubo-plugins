@@ -87,7 +87,47 @@ re-signs the catalog with the new operational key.
 **Rotate the root key.** This is the one change that **does** require an app
 release, because the app embeds the root public key. Update the
 `MARKETPLACE_ROOT_SIGNING_KEY` secret and ship the new root public key in the
-app.
+app (the `CATALOG_ROOT_PUBLIC_KEY_PEM` constant in
+[`davidpoxon/roubo`](https://github.com/davidpoxon/roubo) at
+`server/services/marketplace-integrity.ts`).
+
+**Custody and backup of the root private key.** The root private key has exactly
+one operational home: the `MARKETPLACE_ROOT_SIGNING_KEY` repo secret, which CI
+reads on stdin to sign the key-ring. GitHub secrets are **write-only**: once set,
+the value cannot be read back out, so the secret is not a backup. At mint time,
+keep **one** offline copy of the root private PEM in a maintainer-controlled
+secure store (a password manager or hardware-backed secret store). Never commit
+it, never place it in the repo or in CI logs. The offline copy is the
+disaster-recovery copy; the secret is the working copy. A lost root key is the
+one failure that forces an app release on every user, so this backup exists
+precisely so you never have to run the recovery below.
+
+**Recover a lost or compromised root key.** A lost root private key cannot be
+reconstructed: it is not derivable from the public key or from the published
+key-ring, and the write-only secret cannot be exported. If the offline backup is
+gone too (or the key is compromised), the only path is to mint a fresh root and
+ship it, which retires the old root once users update:
+
+1. Mint a new ed25519 root keypair offline, e.g.
+   `openssl genpkey -algorithm ed25519 -out root-priv.pem`.
+2. Set the secret, then store and scrub the working file:
+   `gh secret set MARKETPLACE_ROOT_SIGNING_KEY --repo davidpoxon/roubo-plugins < root-priv.pem`,
+   save `root-priv.pem` to the offline secure store, then `shred -u root-priv.pem`
+   (or `rm -P` on macOS).
+3. Republish: run the `pages` workflow (or push a change under `marketplace/`,
+   `plugins/`, or `scripts/release/`). It re-signs the key-ring with the new root
+   and re-injects the active operational key; `verify-keyring.mjs` gates the
+   publish.
+4. Embed the new root **public** key in the app: replace
+   `CATALOG_ROOT_PUBLIC_KEY_PEM` (derive it with
+   `node scripts/release/derive-public-key.mjs < root-priv.pem`), then cut a new
+   app release.
+
+Until a user updates to the release carrying the new root, their app still trusts
+the **old** root, so the freshly re-signed key-ring fails verification and the
+client fails closed, degrading to its on-disk cache and bundled seed (the plugin
+list never drops to zero). Root recovery is therefore disruptive but never fatal,
+and the operational-key path (rotate or revoke with no app release) is unaffected.
 
 The signing keys are read on stdin only and are never written to disk or logged.
 The `pages` workflow runs `verify-keyring.mjs` before publishing, so a catalog
