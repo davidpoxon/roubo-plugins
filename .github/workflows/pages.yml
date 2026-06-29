@@ -126,7 +126,7 @@ jobs:
       # assets, not Pages content). Served at:
       #   https://davidpoxon.github.io/roubo-plugins/catalog.json
       #   https://davidpoxon.github.io/roubo-plugins/key-ring.json
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: pages-build
 
