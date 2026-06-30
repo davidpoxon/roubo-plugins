@@ -77,4 +77,4 @@ permissions:
   # waitForHealthy -> initService -> migration -> connection templating).
   processes: false
   ports: false
-  docker: true
+  docker: {}
