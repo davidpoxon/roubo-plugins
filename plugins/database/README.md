@@ -12,7 +12,7 @@ context })` method via `defineComponentPlugin()` and emits a `docker`
 ProvisionDescriptor. The host's `LifecycleEngine` runs the full phase machine
 (composeUp -> waitForHealthy -> initService -> migration -> connection
 templating) over the host-RPC broker. The plugin never drives docker itself
-(`permissions.docker: true` only declares the capability the host exercises on
+(`permissions.docker: {}` only declares the capability the host exercises on
 its behalf; the plugin starts no container).
 
 ## Config
