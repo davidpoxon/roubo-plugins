@@ -1,23 +1,36 @@
 // Publish-gate self-check.
 //
-// After the release assets are uploaded, this recomputes the sha256 of each
-// uploaded asset and asserts it equals the digest recorded in the signed catalog
-// entry. On any mismatch it exits non-zero, reporting the expected (catalog)
-// digest versus the actual (uploaded asset) digest, which FAILS the release
-// (CPHM-TC-067). This is what makes the reproducible digest load-bearing: a
-// catalog whose entry does not match the bytes a user would actually download is
+// After the release assets are uploaded, this verifies each signed catalog entry
+// against the bytes that will actually ship, on two independent axes, and FAILS
+// the release (exit non-zero) on any mismatch (CPHM-TC-067):
+//
+//   1. `source.sha256` must equal the sha256 of the UPLOADED tarball bytes (the
+//      download-integrity check seed-bundle.ts performs on the fetched `.tgz`).
+//   2. `integrity` must equal the UNPACKED-ARTIFACT digest the host recomputes
+//      over the installed file set (roubo/server/services/marketplace-integrity.ts
+//      `computePackageDigest`). It is recomputed here from the checked-out
+//      source's built artifact (`computeArtifactDigest`); that is sound because
+//      check 1 pins the uploaded tarball to the local pack and the build is
+//      reproducible (CPHM-TC-066), so a tarball byte-identical to source unpacks
+//      to this same digest. `integrity` and `source.sha256` are derived two
+//      different ways and are NOT expected to be equal.
+//
+// This is what makes the digests load-bearing: a catalog whose entry does not
+// match the bytes a user would download (or the artifact they would run) is
 // never allowed to ship.
 //
 // In CI, point `--asset-dir` at a directory freshly populated by
 // `gh release download <tag>`, so the bytes hashed here are the ones GitHub will
-// actually serve, not the local build output.
+// actually serve, not the local build output. The built `dist/` must be present
+// (the release job runs `npm run build` before this) so the unpacked-artifact
+// digest can be recomputed.
 //
 // node:crypto only; no new dependency (CPHM-NFR-006).
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { integrityOfFile } from "./pack.mjs";
+import { computeArtifactDigest, integrityOfFile, pluginDirFor } from "./pack.mjs";
 
 /** Parse `--flag value` / `--flag=value` argv into a map. */
 function parseArgs(argv) {
@@ -55,27 +68,44 @@ function main() {
   for (const entry of entries) {
     const fileName = `${entry.id}-${entry.version}.tgz`;
     const assetPath = path.join(assetDir, fileName);
-    const expected = entry.integrity;
-    let actual;
+
+    // 1. source.sha256 must equal the sha256 of the UPLOADED tarball bytes. This
+    //    pins the bytes a user downloads (the check seed-bundle.ts performs) to a
+    //    known value.
+    const expectedTarball = entry.source && entry.source.sha256;
+    let actualTarball;
     try {
-      actual = integrityOfFile(assetPath).integrity;
+      actualTarball = integrityOfFile(assetPath).integrity;
     } catch {
       failures.push(`  ${entry.id}: uploaded asset not found at ${assetPath}`);
       continue;
     }
-    if (actual !== expected) {
+    if (actualTarball !== expectedTarball) {
       failures.push(
-        `  ${entry.id}: digest mismatch\n    expected (catalog): ${expected}\n    actual (uploaded):  ${actual}`,
+        `  ${entry.id}: source.sha256 mismatch\n    expected (catalog source.sha256): ${expectedTarball}\n    actual (uploaded tarball):        ${actualTarball}`,
+      );
+    }
+
+    // 2. integrity must equal the UNPACKED-ARTIFACT digest the host recomputes
+    //    after install (computePackageDigest). Recomputed from the checked-out
+    //    source's built artifact; sound because check 1 pins the uploaded tarball
+    //    to the local pack and the build is reproducible (CPHM-TC-066), so a
+    //    tarball byte-identical to source unpacks to this same digest.
+    let actualArtifact;
+    try {
+      actualArtifact = computeArtifactDigest(pluginDirFor(entry.id));
+    } catch (err) {
+      failures.push(
+        `  ${entry.id}: could not recompute the unpacked-artifact digest: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      continue;
+    }
+    if (actualArtifact !== entry.integrity) {
+      failures.push(
+        `  ${entry.id}: integrity mismatch\n    expected (catalog integrity): ${entry.integrity}\n    actual (unpacked artifact):   ${actualArtifact}`,
       );
     } else {
-      process.stdout.write(`OK ${entry.id} ${expected}\n`);
-    }
-    // Also assert source.sha256 agrees with the top-level integrity so the two
-    // fields can never silently disagree.
-    if (entry.source && entry.source.sha256 && entry.source.sha256 !== expected) {
-      failures.push(
-        `  ${entry.id}: catalog source.sha256 (${entry.source.sha256}) != integrity (${expected})`,
-      );
+      process.stdout.write(`OK ${entry.id} ${entry.integrity}\n`);
     }
   }
 

@@ -1,10 +1,23 @@
 // Per-plugin reproducible build artifact packer.
 //
 // Assembles a normalized, byte-stable tarball for one plugin (the ReleaseAsset:
-// dist/ + roubo-plugin.yaml + package.json + README), computes its sha256, and
-// prints `sha256-<hex>`. Running it twice on the same source yields an identical
-// digest (CPHM-TC-066), so the digest the app verifies is reproducible rather
-// than aspirational.
+// dist/ + roubo-plugin.yaml + package.json + README) and derives two distinct,
+// reproducible digests from the same pinned inputs. The two are NOT the same
+// value and bind the plugin two different ways:
+//
+//   - The TARBALL-BYTES sha256 (`packPlugin().integrity`, printed as
+//     `sha256-<hex>`): the digest of the compressed `.tgz` file. This is the
+//     download-integrity check the seed bundle verifies against the bytes a user
+//     actually fetches (catalog `source.sha256`).
+//   - The UNPACKED-ARTIFACT digest (`computeArtifactDigest()`): the digest the
+//     host recomputes over the unpacked install directory (the catalog
+//     `integrity`). It mirrors the consumer's `computePackageDigest`
+//     (roubo/server/services/marketplace-integrity.ts) byte for byte: files
+//     only, sorted by `/`-joined relative path, hashing rel + NUL + bytes + NUL.
+//
+// Both are reproducible: running either twice on the same source yields an
+// identical digest (CPHM-TC-066), so the digests the app verifies are
+// reproducible rather than aspirational.
 //
 // Determinism recipe (every byte is pinned, nothing is read from the wall clock
 // or the host environment):
@@ -200,6 +213,40 @@ function collectEntries(pluginDir) {
 
   entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return entries;
+}
+
+/**
+ * Compute the UNPACKED-ARTIFACT digest of a plugin's built package as
+ * `sha256-<hex>`. This is the digest the host recomputes over the unpacked
+ * install directory (roubo/server/services/marketplace-integrity.ts
+ * `computePackageDigest`), so it is what the catalog's top-level `integrity`
+ * must carry for marketplace install and first-run seed to verify. It is
+ * intentionally NOT the tarball-bytes sha256 (`packPlugin().integrity`); the two
+ * digest the same plugin two different ways and never agree.
+ *
+ * The file set is exactly what `collectEntries` puts in the tarball minus the
+ * directory entries (a content digest binds to files, not to empty
+ * directories), so by construction this equals the host's digest of the
+ * unpacked tarball. The hash mirrors the consumer byte for byte: files sorted by
+ * their `/`-joined relative path, then for each file `rel` (utf8) + NUL +
+ * content bytes + NUL.
+ *
+ * @param {string} pluginDir
+ * @returns {string}
+ */
+export function computeArtifactDigest(pluginDir) {
+  const files = collectEntries(pluginDir)
+    .filter((entry) => !entry.isDir)
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
+  const hash = createHash("sha256");
+  for (const file of files) {
+    hash.update(file.name, "utf8");
+    hash.update("\0");
+    hash.update(file.content);
+    hash.update("\0");
+  }
+  return `sha256-${hash.digest("hex")}`;
 }
 
 /**
