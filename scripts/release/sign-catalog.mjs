@@ -3,8 +3,11 @@
 // Assembles the signed catalog envelope `{ payload, signature }` the Roubo app
 // verifies, where `signature` is a detached base64 ed25519 signature over the
 // canonical payload bytes (see ./canonical.mjs, mirrored verbatim from the app's
-// marketplace-integrity verifier). Each entry's `integrity` / `source.sha256` is
-// the sha256 of the plugin's normalized release tarball (./pack.mjs).
+// marketplace-integrity verifier). Each entry carries two distinct digests
+// (./pack.mjs): `integrity` is the UNPACKED-ARTIFACT digest the host recomputes
+// over the installed file set (computePackageDigest), while `source.sha256` is
+// the sha256 of the normalized release tarball BYTES the seed bundle verifies on
+// download. They are derived differently and are not expected to be equal.
 //
 // The ed25519 PKCS8 PEM private key is read from STDIN only: never a filesystem
 // path, never an env var written to disk, never echoed or logged
@@ -34,7 +37,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalPayloadBytes } from "./canonical.mjs";
 import { fingerprintKeyId, readStdin } from "./keys.mjs";
-import { INSTALLABLE_PLUGIN_IDS, integrityOfFile, pluginDirFor, readPluginMeta } from "./pack.mjs";
+import {
+  INSTALLABLE_PLUGIN_IDS,
+  computeArtifactDigest,
+  integrityOfFile,
+  pluginDirFor,
+  readPluginMeta,
+} from "./pack.mjs";
 
 const CATALOG_SCHEMA_VERSION = 1;
 const DEFAULT_ASSET_BASE = "https://github.com/davidpoxon/roubo-plugins/releases/download";
@@ -66,7 +75,13 @@ function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set(
     const meta = readPluginMeta(pluginDirFor(id));
     const fileName = `${meta.id}-${meta.version}.tgz`;
     if (!present.has(fileName)) continue;
-    const { integrity } = integrityOfFile(path.join(buildDir, fileName));
+    // source.sha256 pins the tarball BYTES a user downloads (seed-bundle.ts
+    // verifies the fetched .tgz against it). integrity pins the
+    // UNPACKED-ARTIFACT digest the host recomputes after install
+    // (roubo/server/services/marketplace-integrity.ts computePackageDigest); the
+    // two are derived differently and never agree.
+    const sourceSha256 = integrityOfFile(path.join(buildDir, fileName)).integrity;
+    const integrity = computeArtifactDigest(pluginDirFor(meta.id));
     /** @type {Record<string, unknown>} */
     const entry = {
       id: meta.id,
@@ -77,7 +92,7 @@ function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set(
       source: {
         type: "release",
         assetUrl: assetUrlFor(assetBase, meta.id, meta.version),
-        sha256: integrity,
+        sha256: sourceSha256,
       },
       integrity,
       provenance: `roubo-plugins/plugins/${meta.id}@${meta.version}`,
