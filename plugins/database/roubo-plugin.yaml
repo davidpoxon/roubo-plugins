@@ -1,6 +1,6 @@
 id: database
 name: Database
-version: 0.1.0
+version: 0.1.1
 description: Bundled component plugin that provisions a docker-backed database for a bench.
 kind: component
 roubo: ^1.0.0

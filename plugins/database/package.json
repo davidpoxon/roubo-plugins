@@ -1,6 +1,6 @@
 {
   "name": "@roubo/plugin-database",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Bundled Roubo component plugin that provisions a docker-backed database for a bench.",
   "author": "David Poxon",
