@@ -58,12 +58,9 @@ function main() {
   const assetDir = path.resolve(args["asset-dir"] ?? args["build-dir"] ?? "release-build");
 
   const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
-  // Accept both catalog shapes so the same publish gate verifies either:
-  // the signed first-party envelope (`{ payload: { entries } }`) or the plain
-  // workplace catalog (top-level `entries`). The envelope path is unchanged.
-  const entries = catalog?.payload?.entries ?? catalog?.entries;
+  const entries = catalog?.payload?.entries;
   if (!Array.isArray(entries) || entries.length === 0) {
-    throw new Error(`Catalog ${catalogPath} has no entries to check.`);
+    throw new Error(`Catalog ${catalogPath} has no payload.entries to check.`);
   }
 
   /** @type {string[]} */
