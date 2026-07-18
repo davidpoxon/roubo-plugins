@@ -2,12 +2,22 @@ name: release-workplace
 
 # Build and publish a per-plugin WORKPLACE marketplace artifact with a
 # reproducible digest, reusing the first-party release.yml shape MINUS the
-# signing / verify-keyring gate (CPHMTP-FR-011 / issue #567). Triggered by a
-# per-plugin version tag `<id>-v<version>` (e.g. `github-com-v0.1.0`) or manually
-# for a chosen plugin. The job builds the plugin, packs a normalized byte-stable
-# tarball, uploads it as a Release asset, generates a PLAIN catalog.json (no
-# signature, no key ring), then runs the publish-gate self-check that
-# re-downloads the uploaded asset and fails the release on a digest mismatch.
+# signing / verify-keyring gate (CPHMTP-FR-011 / issue #567). Run for a chosen
+# plugin via manual `workflow_dispatch`. The job builds the plugin, packs a
+# normalized byte-stable tarball, uploads it as a Release asset, generates a
+# PLAIN catalog.json (no signature, no key ring), then runs the publish-gate
+# self-check that re-downloads the uploaded asset and fails the release on a
+# digest mismatch.
+#
+# This pipeline's home is a SEPARATE workplace marketplace repo on the GHE
+# instance (architecture: workplace marketplace repo, external new). It lives
+# here as the canonical shape that repo copies. It is deliberately
+# `workflow_dispatch`-only here: a `push: tags: "*-v*"` trigger would be
+# byte-identical to release.yml's and every per-plugin tag push would fire BOTH
+# the signed first-party publish AND this unsigned workplace publish, racing on
+# the same release/asset. The external workplace repo (which has no signed
+# release.yml) re-adds its own `push: tags` trigger; the resolve-plugin step
+# below already handles the tag-push case for that copy.
 #
 # There is NO "Sign catalog" step, NO MARKETPLACE_SIGNING_KEY secret, and NO
 # verify-keyring stage (CPHMTP-TC-094). Trust rests entirely on the mandatory
@@ -23,9 +33,6 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  push:
-    tags:
-      - "*-v*"
   workflow_dispatch:
     inputs:
       plugin:
