@@ -172,3 +172,37 @@ test("buildCatalogPayload emits integrity (artifact digest) distinct from source
   assert.equal(entry.integrity, computeArtifactDigest(pluginDirFor(id)));
   assert.notEqual(entry.integrity, entry.source.sha256);
 });
+
+test("buildCatalogPayload marks every first-party entry verified", (t) => {
+  // The display-only curation flag the app's "Verified" trust pill reads. Every
+  // INSTALLABLE_PLUGIN_IDS entry is curated first-party, so all must carry
+  // `verified: true`; omitting it read falsy app-side and rendered genuine
+  // first-party plugins as "Unverified".
+  const id = INSTALLABLE_PLUGIN_IDS[0];
+  const built = (() => {
+    try {
+      return statSync(path.join(pluginDirFor(id), "dist")).isDirectory();
+    } catch {
+      return false;
+    }
+  })();
+  if (!built) {
+    t.skip(`plugins/${id}/dist not built; run \`npm run build\` to exercise this test`);
+    return;
+  }
+
+  const buildDir = mkdtempSync(path.join(tmpdir(), "catalog-verified-build-"));
+  t.after(() => rmSync(buildDir, { recursive: true, force: true }));
+  packPlugin({ pluginDir: pluginDirFor(id), outDir: buildDir });
+
+  const payload = buildCatalogPayload({
+    buildDir,
+    assetBase: "https://example.invalid/releases/download",
+    keyId: "ed25519-0000000000000000",
+  });
+
+  assert.ok(payload.entries.length >= 1, "expected at least one catalog entry");
+  for (const entry of payload.entries) {
+    assert.equal(entry.verified, true, `entry ${entry.id} must be verified: true`);
+  }
+});
