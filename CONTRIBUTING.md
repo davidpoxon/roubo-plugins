@@ -51,6 +51,10 @@ a PR that does not build will fail review.
 
 ## Marketplace key rotation and revocation
 
+This section covers the **first-party** signed marketplace. To run your own
+**third-party** marketplace (an unsigned source, with the signing and
+verify-keyring gate omitted), see [PUBLISHING.md](./PUBLISHING.md).
+
 The marketplace serves a signed `catalog.json` and a signed `key-ring.json` from
 GitHub Pages. The catalog is signed by a rotating **operational** key; the
 key-ring is signed by the long-lived **root** key the app embeds, and it
