@@ -118,12 +118,13 @@ The reference pipeline (`.github/workflows/release.yml`, driven by
 
 1. **Build** each plugin with `tsup` (`npm run build`), producing its `dist/`
    tree. The artifact must be built before it can be packed.
-2. **Pack and compute sha256.** `node scripts/release/pack.mjs --plugin <id>
---out-dir release-build` assembles a normalized, byte-stable `.tgz` and
-   derives both digests from the same pinned inputs: the tarball-bytes sha256
-   (the entry's `source.sha256`) and the unpacked-artifact digest (the entry's
-   `integrity`). The packer prints the `sha256-<hex>` integrity and the file
-   name.
+2. **Pack and compute the tarball sha256.**
+   `node scripts/release/pack.mjs --plugin <id> --out-dir release-build`
+   assembles a normalized, byte-stable `.tgz` and derives the tarball-bytes
+   sha256 (the entry's `source.sha256`) from pinned inputs, printing it as
+   `sha256-<hex>` alongside the file name. The unpacked-artifact digest (the
+   entry's top-level `integrity`) is a distinct value computed from the same
+   source during catalog regeneration (step 4), not by the pack command.
 3. **Publish the artifact** as a **per-plugin release asset.** The reference
    pipeline tags each release `<id>-v<version>` and uploads
    `<id>-<version>.tgz` as the asset named by the entry's `source.assetUrl`.
