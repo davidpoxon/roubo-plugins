@@ -18,7 +18,7 @@ The Roubo desktop application that hosts these plugins, and the "Roubo for Githu
 
 The plugins are loaded and run by the Roubo application as local processes on your own machine. There are two kinds:
 
-- **Integration plugins** (`@roubo/plugin-github-com`, `@roubo/plugin-ghe`, `@roubo/plugin-jira-self-hosted`) let Roubo read and write issues and related metadata in an external tracker you configure: GitHub.com, a GitHub Enterprise Server instance, or a self-hosted Jira instance.
+- **Integration plugins** (`@roubo/plugin-github-com`) let Roubo read and write issues and related metadata in an external tracker you configure: GitHub.com.
 - **Component plugins** (`@roubo/plugin-process`, `@roubo/plugin-database`) provision and supervise local components for a bench: a long-running process, or a docker-backed database.
 
 ## Information the plugins collect

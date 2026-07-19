@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parseSourcesConfig } from "../parse-sources.js";
 
-// Canonical input/output shared with the GHE counterpart test
-// (`plugins/ghe/src/__tests__/parse-sources.test.ts`). Both plugins must
-// return the same parsed shape so the host can treat their source-config
-// payloads identically (WU-037 acceptance criterion 3).
+// Canonical input/output for the host's source-config contract: this parsed
+// shape is what the host relies on when consuming an integration plugin's
+// source-config payload (WU-037 acceptance criterion 3).
 const CANONICAL_ALERTS_INPUT = {
   sources: [
     {
