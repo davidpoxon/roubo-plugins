@@ -96,6 +96,15 @@ function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set(
       },
       integrity,
       provenance: `roubo-plugins/plugins/${meta.id}@${meta.version}`,
+      // Display-only first-party curation flag (distinct from the ed25519
+      // signature above). Every id in INSTALLABLE_PLUGIN_IDS is a curated
+      // first-party plugin, so the whole first-party catalog is verified. The
+      // app renders the green "Verified" trust pill only when this is true AND
+      // the source is first-party; force-false'd for third parties app-side
+      // (roubo/server/services/marketplace.ts annotate()), so a hostile source
+      // cannot borrow it. Omitting it read falsy => "Unverified" on genuine
+      // first-party cards.
+      verified: true,
     };
     // A revoked entry is delisted by the client and blocked from install/update
     // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
