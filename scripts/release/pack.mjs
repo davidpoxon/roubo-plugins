@@ -50,13 +50,7 @@ export const PLUGINS_DIR = path.join(REPO_ROOT, "plugins");
  * build-only internal package (no roubo-plugin.yaml) and is intentionally not
  * publishable.
  */
-export const INSTALLABLE_PLUGIN_IDS = [
-  "database",
-  "ghe",
-  "github-com",
-  "jira-self-hosted",
-  "process",
-];
+export const INSTALLABLE_PLUGIN_IDS = ["database", "github-com", "process"];
 
 /** Files that always go into the tarball, in addition to the whole dist/ tree. */
 const TOP_LEVEL_ENTRIES = ["package.json", "roubo-plugin.yaml", "README.md"];

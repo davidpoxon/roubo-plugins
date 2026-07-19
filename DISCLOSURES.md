@@ -10,7 +10,7 @@ The Roubo plugins are open-source software that runs entirely on the developer's
 
 ## What the plugins do
 
-- **Integration plugins** (`@roubo/plugin-github-com`, `@roubo/plugin-ghe`, `@roubo/plugin-jira-self-hosted`) read and write issues and related metadata in an external tracker the user configures (GitHub.com, GitHub Enterprise Server, or self-hosted Jira). Each makes outbound HTTPS requests directly from the user's machine to the configured service, using a credential the host Roubo application manages. They request only the access needed to perform the actions the user initiates.
+- **Integration plugins** (`@roubo/plugin-github-com`) read and write issues and related metadata in an external tracker the user configures (GitHub.com). Each makes outbound HTTPS requests directly from the user's machine to the configured service, using a credential the host Roubo application manages. They request only the access needed to perform the actions the user initiates.
 - **Component plugins** (`@roubo/plugin-process`, `@roubo/plugin-database`) supervise a long-running process or provision a docker-backed database for a bench, locally on the user's machine.
 
 ## Credential handling
