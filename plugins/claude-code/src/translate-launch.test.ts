@@ -18,7 +18,7 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
 
     const descriptor = translateLaunch({ config, context: contextWith(config) });
 
-    expect(descriptor).toEqual({
+    expect(descriptor).toMatchObject({
       schemaVersion: 1,
       kind: "agent-launch",
       command: "claude",
@@ -34,6 +34,38 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
       ],
       initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
     });
+  });
+
+  // Both AgentLaunchDescriptorSchema and AgentCapabilitiesSchema are .strict()
+  // host-side, so a stray or misspelled key is a launch-time validation error
+  // rather than an ignored field. Pin the exact key sets so one cannot slip in.
+  it("declares exactly the descriptor and capability keys the host accepts", () => {
+    const withoutRules = translateLaunch({ config: {}, context: contextWith() });
+    expect(Object.keys(withoutRules).sort()).toEqual([
+      "args",
+      "capabilities",
+      "command",
+      "initialPrompt",
+      "kind",
+      "schemaVersion",
+    ]);
+    expect(Object.keys(withoutRules.capabilities ?? {}).sort()).toEqual([
+      "notification",
+      "permissions",
+    ]);
+    // PermissionsCapabilitySchema is .strict() too, so pin its keys as well.
+    expect(Object.keys(withoutRules.capabilities?.permissions ?? {}).sort()).toEqual([
+      "postures",
+      "rules",
+    ]);
+
+    const config = { permissions: { rules: { allow: ["Bash(*)"], ask: [], deny: [] } } };
+    const withRules = translateLaunch({ config, context: contextWith(config) });
+    expect(Object.keys(withRules.capabilities ?? {}).sort()).toEqual([
+      "notification",
+      "permissions",
+      "workspaceWrites",
+    ]);
   });
 
   it("closes argv with the stable --session-id tail the host templates (AP-TC-085)", () => {
@@ -142,5 +174,125 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
 
   it("rejects a non-string extraArgs rather than coercing it", () => {
     expect(() => buildArgs({ extraArgs: ["--verbose"] })).toThrow(/"extraArgs" must be a string/);
+  });
+});
+
+describe("claude-code permissions capability (AP-FR-016, AP-FR-018, AP-US-007)", () => {
+  const rules = {
+    allow: ["Bash(npm run *)", "Read(**)"],
+    ask: ["WebFetch"],
+    deny: ["Bash(rm -rf *)"],
+  };
+
+  it("declares the rules capability with the workspace-write carrier and resync (AP-TC-101)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.permissions?.rules).toEqual({
+      carrier: "workspace-write",
+      resync: true,
+    });
+  });
+
+  it("binds every universal posture to a --permission-mode flag (AP-FR-016)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.permissions?.postures).toEqual({
+      "read-only": { args: ["--permission-mode", "plan"] },
+      guarded: { args: ["--permission-mode", "manual"] },
+      "auto-edit": { args: ["--permission-mode", "acceptEdits"] },
+      "full-auto": { args: ["--permission-mode", "auto"] },
+    });
+  });
+
+  it("maps allow, deny, and ask rules onto settings.local.json arrays (AP-TC-078, AP-TC-097)", () => {
+    const config = { permissions: { rules } };
+
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(capabilities?.workspaceWrites).toEqual([
+      {
+        relPath: ".claude/settings.local.json",
+        format: "json",
+        ops: [
+          { op: "unionArray", path: "permissions.allow", values: rules.allow },
+          { op: "unionArray", path: "permissions.deny", values: rules.deny },
+          { op: "unionArray", path: "permissions.ask", values: rules.ask },
+        ],
+      },
+    ]);
+  });
+
+  it("unions rather than replaces, so user-authored entries survive (AP-TC-098)", () => {
+    const config = { permissions: { rules } };
+
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+
+    for (const op of capabilities?.workspaceWrites?.[0]?.ops ?? []) {
+      expect(op.op).toBe("unionArray");
+    }
+  });
+
+  it("declares no rules write at all when the project has no rules (AP-TC-097)", () => {
+    const config = { permissions: { rules: { allow: [], ask: [], deny: [] } } };
+
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(capabilities?.workspaceWrites).toBeUndefined();
+  });
+
+  it("wires the notification hook into the same settings file (AP-TC-078, AP-TC-097)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.notification).toEqual({
+      kind: "http-hook",
+      event: "waiting",
+      carrier: {
+        workspaceWrite: {
+          relPath: ".claude/settings.local.json",
+          format: "json",
+          ops: [
+            {
+              op: "set",
+              path: "hooks.Notification",
+              value: [
+                {
+                  hooks: [
+                    {
+                      type: "http",
+                      url: "http://localhost:{{port}}/api/hooks/claude-notification",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      correlation: { field: "session_id", source: "agent-native" },
+    });
+  });
+
+  it("drops the config mode flag when a posture is set, so only one mode is emitted", () => {
+    const config = { mode: "plan", permissions: { posture: "full-auto" } };
+
+    const { args } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(args).toEqual(["--session-id", "{{sessionId}}"]);
+  });
+
+  it("keeps the config mode flag when the project selects no posture", () => {
+    const config = { mode: "plan", permissions: { rules } };
+
+    const { args } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(args).toEqual(["--permission-mode", "plan", "--session-id", "{{sessionId}}"]);
+  });
+
+  it("rejects an unrecognised posture rather than passing it through", () => {
+    const config = { permissions: { posture: "yolo" } };
+
+    expect(() => translateLaunch({ config, context: contextWith(config) })).toThrow(
+      /"permissions.posture" must be one of read-only, guarded, auto-edit, full-auto/,
+    );
   });
 });

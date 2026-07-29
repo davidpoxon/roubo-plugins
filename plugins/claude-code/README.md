@@ -64,6 +64,61 @@ host spawns `args` as an argv array and never through a shell, so
 `-rf`, `$HOME`, `$(whoami)` and runs nothing. An unbalanced quote or a dangling
 backslash is rejected with a clear error rather than guessed at.
 
+## Permissions
+
+The host layers the project's permissions model onto the effective config as
+`config.permissions`, above all four configuration layers, and this plugin maps
+both of its axes (AP-FR-016, AP-FR-018):
+
+```ts
+{ posture?: "read-only" | "guarded" | "auto-edit" | "full-auto",
+  rules: { allow: string[]; ask: string[]; deny: string[] } }
+```
+
+**Posture** binds through argv, because `--permission-mode` is Claude Code's own
+mechanism for this axis:
+
+| Posture     | Emits                           |
+| ----------- | ------------------------------- |
+| `read-only` | `--permission-mode plan`        |
+| `guarded`   | `--permission-mode manual`      |
+| `auto-edit` | `--permission-mode acceptEdits` |
+| `full-auto` | `--permission-mode auto`        |
+
+When the project selects a posture it wins outright: the `mode` config field's
+flag is dropped, so exactly one `--permission-mode` ever reaches the CLI. With no
+posture selected, `mode` behaves exactly as it always has.
+
+**Rules** need a file, so the plugin declares
+`rules: { carrier: "workspace-write", resync: true }` and emits a
+`.claude/settings.local.json` write mapping `allow` / `deny` / `ask` onto the
+matching `permissions.*` arrays. The ops are `unionArray`, never `set`: entries
+the user wrote by hand, or that Claude Code itself persisted when a permission
+was granted mid-session, survive untouched. `resync: true` tells the host those
+writes are safe to re-apply to an already-created bench, which is what the
+permissions screen's Re-sync benches control dispatches through. A project with
+no rules produces no write at all, so no empty `permissions` key appears.
+
+The host rejects path-escaping patterns in the access-granting groups, `allow`
+and `ask`, before they are stored, and filters any survivors before handing the
+model over, so no escaping grant reaches the plugin. `deny` is subtractive, so
+the host deliberately leaves it unchecked and it arrives here exactly as the
+user wrote it, absolute and home-rooted paths included; the plugin passes those
+through to `permissions.deny` unchanged.
+
+## Notifications
+
+The plugin declares `http-hook` notification wiring, carried by the same
+`.claude/settings.local.json` write: `hooks.Notification` is **set** (not
+unioned) to the catch-all Roubo endpoint at
+`http://localhost:{{port}}/api/hooks/claude-notification`, and correlation rides
+Claude Code's own `session_id`, which is the uuid the host handed it as
+`--session-id`. Setting rather than merging matches the built-in writer for the
+`Notification` key: Roubo's endpoint must be registered outright on every session
+start so a stale registration can never survive. Unlike the built-in writer,
+which replaces the whole `hooks` object, this write leaves other hook events such
+as `Stop` untouched.
+
 ## Example
 
 Agent config is not part of `roubo.yaml`. Application-level defaults live in
@@ -95,9 +150,10 @@ Because the descriptor is executed by the same host launch pipeline the built-in
 Claude Code integration runs through, a session launched by this plugin is
 correlated identically to the built-in one: `--session-id <uuid>` remains the
 stable tail and the initial prompt remains the final positional argument, which
-is the shape the in-tree conformance suite pins. This slice covers the launch
-flags only; jig injection, notification wiring, permissions writes, and version
-gating land in their own slices.
+is the shape the in-tree conformance suite pins. The settings write is pinned the
+same way: the conformance suite asserts that executing this plugin's descriptor
+produces a byte-identical `.claude/settings.local.json` to the built-in writer
+for the same inputs. Jig injection and version gating land in their own slices.
 
 Binary discovery is part of that parity too. The descriptor's `command` is the
 bare name `claude`, and the host resolves it before the PTY spawn through the

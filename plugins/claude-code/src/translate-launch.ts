@@ -1,8 +1,19 @@
-import type { AgentLaunchContext, AgentLaunchDescriptor } from "@roubo/plugin-sdk";
+import type {
+  AgentLaunchContext,
+  AgentLaunchDescriptor,
+  AgentPosture,
+  NotificationWiring,
+  PermissionsCapability,
+  WorkspaceWriteSpec,
+  WriteOp,
+} from "@roubo/plugin-sdk";
 import { tokenize } from "./tokenize.js";
 
 /** The command the host spawns. Resolved on the host PATH; never shell-interpreted. */
 const COMMAND = "claude";
+
+/** The workspace file Claude Code reads its per-project settings from. */
+const SETTINGS_REL_PATH = ".claude/settings.local.json";
 
 /**
  * The host truncates a positional prompt to this length before spawning, and
@@ -49,7 +60,10 @@ const MODES = ["default", "plan", "auto", "acceptEdits", "manual"] as const;
  * field behaves exactly like one that sets it to `default` (and, for
  * `extraArgs`, appends nothing: AP-TC-091).
  */
-export function buildArgs(config: Record<string, unknown>): string[] {
+export function buildArgs(
+  config: Record<string, unknown>,
+  opts: { omitMode?: boolean } = {},
+): string[] {
   const args: string[] = [];
 
   const model = readChoice(config.model, MODELS, "model");
@@ -58,7 +72,10 @@ export function buildArgs(config: Record<string, unknown>): string[] {
   const effort = readChoice(config.effort, EFFORTS, "effort");
   if (effort !== undefined && effort !== "default") args.push("--effort", effort);
 
-  const mode = readChoice(config.mode, MODES, "mode");
+  // The project's permission posture, when it sets one, IS the permission mode:
+  // emitting the config's `mode` alongside it would put two --permission-mode
+  // flags on one command line and leave which one wins to the CLI.
+  const mode = opts.omitMode ? undefined : readChoice(config.mode, MODES, "mode");
   if (mode !== undefined && mode !== "default") args.push("--permission-mode", mode);
 
   const extraArgs = config.extraArgs;
@@ -93,15 +110,160 @@ export function translateLaunch(params: {
   // mapping; `context` is part of the contract signature.
   context: AgentLaunchContext;
 }): AgentLaunchDescriptor {
+  const permissions = readPermissions(params.config.permissions);
+  const rulesWrite = buildRulesWrite(permissions?.rules);
+
   return {
     schemaVersion: 1,
     kind: "agent-launch",
     command: COMMAND,
     // The stable tail: `--session-id <uuid>` closes the generated argv, and the
     // host appends the initial prompt (if any) after it as the last positional.
-    args: [...buildArgs(params.config), "--session-id", "{{sessionId}}"],
+    args: [
+      ...buildArgs(params.config, { omitMode: permissions?.posture !== undefined }),
+      "--session-id",
+      "{{sessionId}}",
+    ],
     initialPrompt: { mode: "argv-positional", maxLength: MAX_PROMPT_LENGTH },
+    capabilities: {
+      // The rules write comes first so a fresh settings file gets `permissions`
+      // before `hooks`, byte-for-byte what the built-in integration produces
+      // for the same inputs (AP-TC-097).
+      ...(rulesWrite !== undefined && { workspaceWrites: [rulesWrite] }),
+      notification: NOTIFICATION_WIRING,
+      permissions: PERMISSIONS_CAPABILITY,
+    },
   };
+}
+
+/**
+ * Roubo's notification endpoint, registered on every session start (AP-TC-078
+ * S002-O02, AP-TC-097 S002-O02).
+ *
+ * Catch-all with no matcher, so every Notification event Claude Code emits POSTs
+ * back to the host, and correlated on the CLI's own `session_id` (which is the
+ * uuid the host handed it as `--session-id`). `Notification` is SET rather than
+ * unioned: the host's endpoint must be registered outright, so a stale
+ * registration can never survive. The built-in writer replaces the whole `hooks`
+ * object; this write touches only `Notification` and leaves other hook events in
+ * place, which is what AP-TC-098 asks for (only Roubo-managed keys are touched).
+ */
+const NOTIFICATION_WIRING: NotificationWiring = {
+  kind: "http-hook",
+  event: "waiting",
+  carrier: {
+    workspaceWrite: {
+      relPath: SETTINGS_REL_PATH,
+      format: "json",
+      ops: [
+        {
+          op: "set",
+          path: "hooks.Notification",
+          value: [
+            {
+              hooks: [
+                { type: "http", url: "http://localhost:{{port}}/api/hooks/claude-notification" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  correlation: { field: "session_id", source: "agent-native" },
+};
+
+/**
+ * How Claude Code realises each universal posture (AP-FR-016).
+ *
+ * Every posture binds through argv alone: Claude Code's native mechanism for
+ * this axis is `--permission-mode`, so nothing needs to reach a settings file.
+ * The fine-grained rules are the other axis, and they DO need a file, which is
+ * why `rules` declares the workspace-write carrier and opts into resync: the
+ * host may re-inject them into an already-created bench workspace.
+ */
+const PERMISSIONS_CAPABILITY: PermissionsCapability = {
+  postures: {
+    "read-only": { args: ["--permission-mode", "plan"] },
+    guarded: { args: ["--permission-mode", "manual"] },
+    "auto-edit": { args: ["--permission-mode", "acceptEdits"] },
+    "full-auto": { args: ["--permission-mode", "auto"] },
+  },
+  rules: { carrier: "workspace-write", resync: true },
+};
+
+/** The permissions model the host layers onto the effective config, if any. */
+interface LaunchPermissions {
+  posture?: AgentPosture;
+  rules?: { allow: string[]; ask: string[]; deny: string[] };
+}
+
+const POSTURES: readonly AgentPosture[] = ["read-only", "guarded", "auto-edit", "full-auto"];
+
+function readPermissions(value: unknown): LaunchPermissions | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(
+      'claude-code agent plugin: "permissions" must be an object, but it was ' +
+        `${Array.isArray(value) ? "an array" : typeof value}.`,
+    );
+  }
+  const raw = value as { posture?: unknown; rules?: unknown };
+  const posture =
+    raw.posture === undefined || raw.posture === null
+      ? undefined
+      : readChoice(raw.posture, POSTURES, "permissions.posture");
+  const rules = readRules(raw.rules);
+  return {
+    ...(posture !== undefined && { posture }),
+    ...(rules !== undefined && { rules }),
+  };
+}
+
+function readRules(value: unknown): { allow: string[]; ask: string[]; deny: string[] } | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    allow: readRuleList(raw.allow),
+    ask: readRuleList(raw.ask),
+    deny: readRuleList(raw.deny),
+  };
+}
+
+function readRuleList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/**
+ * The allow/deny/ask rules as one declarative settings write, or `undefined`
+ * when there are none.
+ *
+ * `unionArray` rather than `set`, because the workspace file is shared with the
+ * user: rules Claude Code itself persisted when the user granted something
+ * in-session, and any hand-written entry, survive the merge (AP-TC-098). It also
+ * means removing a project rule never rewrites a bench, which matches the
+ * built-in behaviour: a removal takes effect when the bench is cleared.
+ *
+ * Array order is allow, deny, ask: the order the built-in writer emits, so a
+ * fresh file is identical either way (AP-TC-097 S002-O03).
+ */
+function buildRulesWrite(
+  rules: { allow: string[]; ask: string[]; deny: string[] } | undefined,
+): WorkspaceWriteSpec | undefined {
+  if (!rules) return undefined;
+  const ops: WriteOp[] = [];
+  if (rules.allow.length > 0) {
+    ops.push({ op: "unionArray", path: "permissions.allow", values: rules.allow });
+  }
+  if (rules.deny.length > 0) {
+    ops.push({ op: "unionArray", path: "permissions.deny", values: rules.deny });
+  }
+  if (rules.ask.length > 0) {
+    ops.push({ op: "unionArray", path: "permissions.ask", values: rules.ask });
+  }
+  if (ops.length === 0) return undefined;
+  return { relPath: SETTINGS_REL_PATH, format: "json", ops };
 }
 
 /**
