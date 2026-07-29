@@ -17,8 +17,12 @@ const MAX_PROMPT_LENGTH = 100_000;
  */
 const MODELS = ["default", "opus", "sonnet", "haiku"] as const;
 
-/** Reasoning-effort choices, each emitted verbatim as `--effort <value>` (AP-TC-093). */
-const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+/**
+ * Reasoning-effort choices, each emitted verbatim as `--effort <value>`
+ * (AP-TC-093). As with `model` and `mode`, `default` is a sentinel rather than
+ * a level: it emits no `--effort` flag and defers to the CLI's own default.
+ */
+const EFFORTS = ["default", "low", "medium", "high", "xhigh", "max"] as const;
 
 /**
  * Permission-mode choices (AP-TC-094). `default` is the sentinel that emits no
@@ -52,7 +56,7 @@ export function buildArgs(config: Record<string, unknown>): string[] {
   if (model !== undefined && model !== "default") args.push("--model", model);
 
   const effort = readChoice(config.effort, EFFORTS, "effort");
-  if (effort !== undefined) args.push("--effort", effort);
+  if (effort !== undefined && effort !== "default") args.push("--effort", effort);
 
   const mode = readChoice(config.mode, MODES, "mode");
   if (mode !== undefined && mode !== "default") args.push("--permission-mode", mode);

@@ -26,14 +26,28 @@ configSchema:
     effort:
       title: Effort
       type: string
-      default: high
-      description: Reasoning effort passed as `--effort`.
-      enum:
-        - low
-        - medium
-        - high
-        - xhigh
-        - max
+      default: default
+      # `default` is a sentinel, not an effort level, exactly as it is for
+      # `model` and `mode` above and below. The settings form renders a closed
+      # choice list with no clear control, so without an explicit sentinel
+      # option a user who picked an effort could never get back to "send no
+      # flag". It also keeps the form's displayed default honest: the host does
+      # not seed configSchema defaults into the effective config, so the
+      # sentinel is what an unsaved field actually behaves as.
+      description: Reasoning effort passed as `--effort`. `CLI default` sends no flag and defers to the CLI's own default.
+      oneOf:
+        - const: default
+          title: CLI default
+        - const: low
+          title: Low
+        - const: medium
+          title: Medium
+        - const: high
+          title: High
+        - const: xhigh
+          title: Extra high
+        - const: max
+          title: Max
     mode:
       title: Mode
       type: string

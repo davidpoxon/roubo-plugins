@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: June 27, 2026**
+**Last updated: July 29, 2026**
 
 This Privacy Policy describes how the plugins in this repository (the "Roubo plugins") handle your information.
 
@@ -10,16 +10,17 @@ The Roubo plugins run entirely on your computer, inside the Roubo application th
 
 ## Who this policy covers
 
-This policy applies to the integration and component plugins whose source lives in this repository. Throughout this document, "the Roubo project" refers to the maintainers of the open source repositories at [github.com/davidpoxon/roubo](https://github.com/davidpoxon/roubo) and [github.com/davidpoxon/roubo-plugins](https://github.com/davidpoxon/roubo-plugins), and "you" refers to the person running Roubo with these plugins installed.
+This policy applies to the integration, component, and agent plugins whose source lives in this repository. Throughout this document, "the Roubo project" refers to the maintainers of the open source repositories at [github.com/davidpoxon/roubo](https://github.com/davidpoxon/roubo) and [github.com/davidpoxon/roubo-plugins](https://github.com/davidpoxon/roubo-plugins), and "you" refers to the person running Roubo with these plugins installed.
 
 The Roubo desktop application that hosts these plugins, and the "Roubo for Github" OAuth App it uses, are covered by the [Roubo privacy policy](https://github.com/davidpoxon/roubo/blob/main/PRIVACY.md). Where a plugin relies on a credential or token, that credential is provided and stored locally by the host application and sent only to the service the plugin is configured to reach. The linked policy describes this handling for the GitHub.com OAuth token; credentials for a GitHub Enterprise Server or self-hosted Jira instance are managed locally by the host application in the same way.
 
 ## What the plugins are
 
-The plugins are loaded and run by the Roubo application as local processes on your own machine. There are two kinds:
+The plugins are loaded and run by the Roubo application as local processes on your own machine. There are three kinds:
 
 - **Integration plugins** (`@roubo/plugin-github-com`) let Roubo read and write issues and related metadata in an external tracker you configure: GitHub.com.
 - **Component plugins** (`@roubo/plugin-process`, `@roubo/plugin-database`) provision and supervise local components for a bench: a long-running process, or a docker-backed database.
+- **Agent plugins** (`@roubo/plugin-claude-code`) build the command line Roubo uses to launch an AI coding agent CLI in a bench. The plugin maps your configured settings to command-line arguments and nothing else; it spawns no process itself and makes no network request of its own.
 
 ## Information the plugins collect
 
@@ -36,6 +37,10 @@ Your interactions with a third-party service are governed by that service's own 
 ## How component plugins use the network
 
 The component plugins manage local components on your machine (a supervised process, or a docker-backed database). They do not transmit your data to the Roubo project or to any third party.
+
+## How agent plugins use the network
+
+The agent plugins make no network requests. An agent plugin only maps your configured settings to the command line for an agent CLI you have installed yourself; the host application launches that CLI locally. Whatever the launched CLI then sends, and to whom, is governed by that tool's own privacy policy and terms, not by this one, and the Roubo project never sees it.
 
 ## Children's privacy
 

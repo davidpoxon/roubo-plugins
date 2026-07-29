@@ -114,6 +114,16 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
     expect(buildArgs({ mode: "default" })).toEqual([]);
   });
 
+  it("omits --effort for the CLI-default sentinel, like model and mode (AP-TC-093)", () => {
+    expect(buildArgs({ effort: "default" })).toEqual([]);
+    expect(buildArgs({ model: "opus", effort: "default", mode: "plan" })).toEqual([
+      "--model",
+      "opus",
+      "--permission-mode",
+      "plan",
+    ]);
+  });
+
   it.each([["opus"], ["sonnet"], ["haiku"]])("maps model %s to --model %s (AP-TC-085)", (model) => {
     expect(buildArgs({ model })).toEqual(["--model", model]);
   });
@@ -123,7 +133,7 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
       /"model" must be one of default, opus, sonnet, haiku/,
     );
     expect(() => buildArgs({ effort: "extreme" })).toThrow(
-      /"effort" must be one of low, medium, high, xhigh, max/,
+      /"effort" must be one of default, low, medium, high, xhigh, max/,
     );
     expect(() => buildArgs({ mode: "yolo" })).toThrow(
       /"mode" must be one of default, plan, auto, acceptEdits, manual/,
