@@ -4,6 +4,7 @@ import type {
   AgentPosture,
   NotificationWiring,
   PermissionsCapability,
+  VersionProbeSpec,
   WorkspaceWriteSpec,
   WriteOp,
 } from "@roubo/plugin-sdk";
@@ -131,6 +132,7 @@ export function translateLaunch(params: {
       // for the same inputs (AP-TC-097).
       ...(rulesWrite !== undefined && { workspaceWrites: [rulesWrite] }),
       notification: NOTIFICATION_WIRING,
+      versionProbe: VERSION_PROBE,
       permissions: PERMISSIONS_CAPABILITY,
     },
   };
@@ -171,6 +173,28 @@ const NOTIFICATION_WIRING: NotificationWiring = {
     },
   },
   correlation: { field: "session_id", source: "agent-native" },
+};
+
+/**
+ * The pre-launch version gate (AP-FR-014, issue #519).
+ *
+ * Declarative only: the plugin says which arguments read the version and where
+ * the supported window sits, and the host spawns the probe, parses the first
+ * semver out of the output, and decides. The bounds mirror the manifest's
+ * `agentCompatibility` block, which is what the AI Agents screen renders without
+ * launching anything; these are what the launch gate itself enforces.
+ *
+ * `minVersion` is inclusive and blocking: below 2.1.111 the CLI predates
+ * `--permission-mode auto`, so the `full-auto` posture (and a `mode: auto`
+ * config) would land on a `--permission-mode` value the CLI rejects.
+ * `testedCeiling` never blocks, because the CLI ships weekly and refusing to
+ * launch on an unrecognised newer version would age worse than a warning does.
+ */
+const VERSION_PROBE: VersionProbeSpec = {
+  args: ["--version"],
+  parse: "semver",
+  minVersion: "2.1.111",
+  testedCeiling: "2.1.207",
 };
 
 /**
