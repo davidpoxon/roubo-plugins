@@ -1,11 +1,20 @@
 id: claude-code
 name: Claude Code
-version: 0.2.0
+version: 0.3.0
 description: Bundled agent plugin that launches Claude Code sessions with a configured model, effort, mode, and extra CLI arguments.
 kind: agent
 roubo: ^1.0.0
 entry: ./dist/index.js
 contractVersion: 1
+# The agent-CLI compatibility window (AP-FR-014). `minVersion` is the inclusive
+# floor a launch is blocked below: 2.1.111 is where `--permission-mode auto`
+# replaced the removed `--enable-auto-mode` flag this plugin no longer emits.
+# `testedCeiling` is the highest CLI this plugin was verified against (spike
+# #504 exercised 2.1.207 end to end); a launch above it proceeds with a
+# staleness warning rather than being blocked, because the CLI ships weekly.
+agentCompatibility:
+  minVersion: 2.1.111
+  testedCeiling: 2.1.207
 configSchema:
   type: object
   properties:

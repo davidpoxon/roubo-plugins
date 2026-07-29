@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AgentLaunchContext } from "@roubo/plugin-sdk";
 import { buildArgs, translateLaunch } from "./translate-launch.js";
@@ -52,6 +53,7 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
     expect(Object.keys(withoutRules.capabilities ?? {}).sort()).toEqual([
       "notification",
       "permissions",
+      "versionProbe",
     ]);
     // PermissionsCapabilitySchema is .strict() too, so pin its keys as well.
     expect(Object.keys(withoutRules.capabilities?.permissions ?? {}).sort()).toEqual([
@@ -64,6 +66,7 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
     expect(Object.keys(withRules.capabilities ?? {}).sort()).toEqual([
       "notification",
       "permissions",
+      "versionProbe",
       "workspaceWrites",
     ]);
   });
@@ -294,5 +297,33 @@ describe("claude-code permissions capability (AP-FR-016, AP-FR-018, AP-US-007)",
     expect(() => translateLaunch({ config, context: contextWith(config) })).toThrow(
       /"permissions.posture" must be one of read-only, guarded, auto-edit, full-auto/,
     );
+  });
+});
+
+describe("version probe (AP-FR-014, AP-TC-100)", () => {
+  it("declares the probe args, the parse mode, and the supported window", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.versionProbe).toEqual({
+      args: ["--version"],
+      parse: "semver",
+      minVersion: "2.1.111",
+      testedCeiling: "2.1.207",
+    });
+  });
+
+  it("declares the same window the manifest does, so the card and the gate agree", () => {
+    const manifest = readFileSync(new URL("../roubo-plugin.yaml", import.meta.url), "utf-8");
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(manifest).toContain(`minVersion: ${capabilities?.versionProbe?.minVersion}`);
+    expect(manifest).toContain(`testedCeiling: ${capabilities?.versionProbe?.testedCeiling}`);
+  });
+
+  it("declares the probe regardless of config, so the gate is never opted out of", () => {
+    const config = { model: "opus", extraArgs: "--verbose" };
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(capabilities?.versionProbe?.minVersion).toBe("2.1.111");
   });
 });

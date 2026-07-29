@@ -119,6 +119,41 @@ start so a stale registration can never survive. Unlike the built-in writer,
 which replaces the whole `hooks` object, this write leaves other hook events such
 as `Stop` untouched.
 
+## Version gating
+
+The plugin declares its supported Claude Code CLI window in two places, and they
+are asserted to agree (AP-FR-014). The manifest's `agentCompatibility` block is
+what the **Settings > AI Agents** card renders, so a user sees the window without
+launching anything; the descriptor's `capabilities.versionProbe` is what the host
+enforces at launch:
+
+```ts
+versionProbe: {
+  args: ["--version"],
+  parse: "semver",
+  minVersion: "2.1.111",
+  testedCeiling: "2.1.207",
+}
+```
+
+`minVersion` is the inclusive floor and it blocks: 2.1.111 is where
+`--permission-mode auto` replaced the removed `--enable-auto-mode`, so on
+anything older the posture bindings above would emit a flag value the CLI
+rejects. Below it, the host refuses the launch before spawning anything and shows
+the detected version, the required floor, and the update action.
+
+`testedCeiling` is the highest CLI this plugin has been verified against and it
+never blocks. Claude Code ships weekly, so refusing to run on an unrecognised
+newer version would age far worse than a warning does; above the ceiling the
+session launches with a non-blocking notice and an amber chip on the card, and a
+launch failure at that version is attributed to a possibly-stale argument map.
+Raise the ceiling as part of re-verifying against a newer CLI, and bump
+`minVersion` only when a flag this plugin emits genuinely stops working.
+
+The probe itself is declarative: the host spawns `claude --version`, scans the
+output for the first semver, and caches the result per resolved binary. The
+plugin spawns nothing.
+
 ## Example
 
 Agent config is not part of `roubo.yaml`. Application-level defaults live in
@@ -153,7 +188,7 @@ stable tail and the initial prompt remains the final positional argument, which
 is the shape the in-tree conformance suite pins. The settings write is pinned the
 same way: the conformance suite asserts that executing this plugin's descriptor
 produces a byte-identical `.claude/settings.local.json` to the built-in writer
-for the same inputs. Jig injection and version gating land in their own slices.
+for the same inputs. Jig injection lands in its own slice.
 
 Binary discovery is part of that parity too. The descriptor's `command` is the
 bare name `claude`, and the host resolves it before the PTY spawn through the
