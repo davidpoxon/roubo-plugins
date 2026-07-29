@@ -12,6 +12,7 @@ The Roubo plugins are open-source software that runs entirely on the developer's
 
 - **Integration plugins** (`@roubo/plugin-github-com`) read and write issues and related metadata in an external tracker the user configures (GitHub.com). Each makes outbound HTTPS requests directly from the user's machine to the configured service, using a credential the host Roubo application manages. They request only the access needed to perform the actions the user initiates.
 - **Component plugins** (`@roubo/plugin-process`, `@roubo/plugin-database`) supervise a long-running process or provision a docker-backed database for a bench, locally on the user's machine.
+- **Agent plugins** (`@roubo/plugin-claude-code`) map the user's configured settings to the command-line arguments the host application uses to launch an AI coding agent CLI the user has installed themselves. The plugin emits a declarative launch descriptor and nothing else: it spawns no process, makes no network request, and performs no inference.
 
 ## Credential handling
 
@@ -29,7 +30,7 @@ Because no personal data is collected, transmitted, or stored by the Roubo proje
 
 ## EU AI Act classification
 
-The Roubo plugins are not AI systems within the meaning of Article 3 of the EU AI Act. They are integration and component connectors: they move issue data between Roubo and an external tracker, or provision and supervise local components. They perform no profiling, biometric identification, employment, education or law-enforcement decisioning, critical-infrastructure control, or any other use case listed in Annex III. They are therefore not "high-risk" under Article 6, and the obligations in Articles 8 to 17 do not apply.
+The Roubo plugins are not AI systems within the meaning of Article 3 of the EU AI Act. They are integration connectors, component provisioners, and agent launchers: they move issue data between Roubo and an external tracker, provision and supervise local components, or map user settings to the command line for a third-party CLI. None of them performs inference, generates output from a model, or embeds one; an agent plugin only assembles command-line arguments, and the AI tool it launches is a separate third-party product the user installs and which its own provider is responsible for. The plugins perform no profiling, biometric identification, employment, education or law-enforcement decisioning, critical-infrastructure control, or any other use case listed in Annex III. They are therefore not "high-risk" under Article 6, and the obligations in Articles 8 to 17 do not apply.
 
 ## Compliance certifications
 

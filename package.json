@@ -2,7 +2,7 @@
   "name": "roubo-plugins",
   "version": "0.0.0",
   "private": true,
-  "description": "Source for the Roubo integration and component plugins, built against the published @roubo SDK packages.",
+  "description": "Source for the Roubo integration, component, and agent plugins, built against the published @roubo SDK packages.",
   "author": "David Poxon",
   "license": "Apache-2.0",
   "type": "module",
@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "prepare": "node -e \"try{require('child_process').execSync('git rev-parse --git-dir',{stdio:'ignore'});require('child_process').execSync('git config core.hooksPath scripts/git-hooks',{stdio:'inherit'});require('fs').chmodSync('scripts/git-hooks/commit-msg',0o755)}catch{}\"",
-    "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database",
+    "build": "npm run build -w @roubo/shared-github && npm run build -w @roubo/plugin-github-com && npm run build -w @roubo/plugin-process && npm run build -w @roubo/plugin-database && npm run build -w @roubo/plugin-claude-code",
     "release:pack": "node scripts/release/pack.mjs",
     "release:sign": "node scripts/release/sign-catalog.mjs",
     "release:sign-keyring": "node scripts/release/sign-key-ring.mjs",

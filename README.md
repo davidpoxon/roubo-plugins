@@ -1,6 +1,6 @@
 # roubo-plugins
 
-Source for the Roubo integration and component plugins, built against the published `@roubo` SDK packages.
+Source for the Roubo integration, component, and agent plugins, built against the published `@roubo` SDK packages.
 
 ## Licence and trademark
 

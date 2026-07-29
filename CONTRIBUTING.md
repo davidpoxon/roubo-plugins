@@ -1,7 +1,7 @@
 # Contributing to Roubo Plugins
 
 Thanks for your interest in contributing to Roubo Plugins. This repository
-holds the source for Roubo's integration and component plugins, built against
+holds the source for Roubo's integration, component, and agent plugins, built against
 the published `@roubo` SDK packages. This document covers how to report issues,
 set up your development environment, and submit changes.
 
