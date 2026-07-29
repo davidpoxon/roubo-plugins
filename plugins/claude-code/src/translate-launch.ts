@@ -143,8 +143,10 @@ export function translateLaunch(params: {
  * Catch-all with no matcher, so every Notification event Claude Code emits POSTs
  * back to the host, and correlated on the CLI's own `session_id` (which is the
  * uuid the host handed it as `--session-id`). `Notification` is SET rather than
- * unioned: the host's endpoint must be registered outright, exactly as the
- * built-in writer overwrites it, so a stale registration can never survive.
+ * unioned: the host's endpoint must be registered outright, so a stale
+ * registration can never survive. The built-in writer replaces the whole `hooks`
+ * object; this write touches only `Notification` and leaves other hook events in
+ * place, which is what AP-TC-098 asks for (only Roubo-managed keys are touched).
  */
 const NOTIFICATION_WIRING: NotificationWiring = {
   kind: "http-hook",

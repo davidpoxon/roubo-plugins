@@ -36,6 +36,38 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
     });
   });
 
+  // Both AgentLaunchDescriptorSchema and AgentCapabilitiesSchema are .strict()
+  // host-side, so a stray or misspelled key is a launch-time validation error
+  // rather than an ignored field. Pin the exact key sets so one cannot slip in.
+  it("declares exactly the descriptor and capability keys the host accepts", () => {
+    const withoutRules = translateLaunch({ config: {}, context: contextWith() });
+    expect(Object.keys(withoutRules).sort()).toEqual([
+      "args",
+      "capabilities",
+      "command",
+      "initialPrompt",
+      "kind",
+      "schemaVersion",
+    ]);
+    expect(Object.keys(withoutRules.capabilities ?? {}).sort()).toEqual([
+      "notification",
+      "permissions",
+    ]);
+    // PermissionsCapabilitySchema is .strict() too, so pin its keys as well.
+    expect(Object.keys(withoutRules.capabilities?.permissions ?? {}).sort()).toEqual([
+      "postures",
+      "rules",
+    ]);
+
+    const config = { permissions: { rules: { allow: ["Bash(*)"], ask: [], deny: [] } } };
+    const withRules = translateLaunch({ config, context: contextWith(config) });
+    expect(Object.keys(withRules.capabilities ?? {}).sort()).toEqual([
+      "notification",
+      "permissions",
+      "workspaceWrites",
+    ]);
+  });
+
   it("closes argv with the stable --session-id tail the host templates (AP-TC-085)", () => {
     const { args } = translateLaunch({ config: {}, context: contextWith() });
 

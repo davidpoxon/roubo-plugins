@@ -20,7 +20,7 @@ The plugins are loaded and run by the Roubo application as local processes on yo
 
 - **Integration plugins** (`@roubo/plugin-github-com`) let Roubo read and write issues and related metadata in an external tracker you configure: GitHub.com.
 - **Component plugins** (`@roubo/plugin-process`, `@roubo/plugin-database`) provision and supervise local components for a bench: a long-running process, or a docker-backed database.
-- **Agent plugins** (`@roubo/plugin-claude-code`) build the command line Roubo uses to launch an AI coding agent CLI in a bench. The plugin maps your configured settings to command-line arguments and nothing else; it spawns no process itself and makes no network request of its own.
+- **Agent plugins** (`@roubo/plugin-claude-code`) build the command line Roubo uses to launch an AI coding agent CLI in a bench. The plugin maps your configured settings to command-line arguments, and declares the permission rules and the local notification-hook registration that the host application writes into a settings file inside the bench workspace on your machine (permission rules are merged with the keys already in that file; the notification-hook entry is replaced). It spawns no process itself, makes no network request of its own, and nothing leaves your machine as a result of those writes.
 
 ## Information the plugins collect
 
@@ -40,7 +40,7 @@ The component plugins manage local components on your machine (a supervised proc
 
 ## How agent plugins use the network
 
-The agent plugins make no network requests. An agent plugin only maps your configured settings to the command line for an agent CLI you have installed yourself; the host application launches that CLI locally. Whatever the launched CLI then sends, and to whom, is governed by that tool's own privacy policy and terms, not by this one, and the Roubo project never sees it.
+The agent plugins make no network requests. An agent plugin maps your configured settings to the command line for an agent CLI you have installed yourself; the host application launches that CLI locally. An agent plugin may also declare a notification hook that the host registers in a settings file inside the bench workspace; that hook only causes the launched CLI to call back to Roubo on `localhost`, so nothing leaves your machine because of it. Whatever the launched CLI then sends, and to whom, is governed by that tool's own privacy policy and terms, not by this one, and the Roubo project never sees it.
 
 ## Children's privacy
 

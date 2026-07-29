@@ -99,8 +99,12 @@ writes are safe to re-apply to an already-created bench, which is what the
 permissions screen's Re-sync benches control dispatches through. A project with
 no rules produces no write at all, so no empty `permissions` key appears.
 
-The host rejects path-escaping rule patterns before they are stored and filters
-any survivors before handing the model over, so the plugin never sees one.
+The host rejects path-escaping patterns in the access-granting groups, `allow`
+and `ask`, before they are stored, and filters any survivors before handing the
+model over, so no escaping grant reaches the plugin. `deny` is subtractive, so
+the host deliberately leaves it unchecked and it arrives here exactly as the
+user wrote it, absolute and home-rooted paths included; the plugin passes those
+through to `permissions.deny` unchanged.
 
 ## Notifications
 
@@ -109,9 +113,11 @@ The plugin declares `http-hook` notification wiring, carried by the same
 unioned) to the catch-all Roubo endpoint at
 `http://localhost:{{port}}/api/hooks/claude-notification`, and correlation rides
 Claude Code's own `session_id`, which is the uuid the host handed it as
-`--session-id`. Setting rather than merging matches the built-in writer: Roubo's
-endpoint must be registered outright on every session start so a stale
-registration can never survive.
+`--session-id`. Setting rather than merging matches the built-in writer for the
+`Notification` key: Roubo's endpoint must be registered outright on every session
+start so a stale registration can never survive. Unlike the built-in writer,
+which replaces the whole `hooks` object, this write leaves other hook events such
+as `Stop` untouched.
 
 ## Example
 

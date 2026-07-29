@@ -52,7 +52,7 @@ configSchema:
       title: Mode
       type: string
       default: default
-      description: Permission mode passed as `--permission-mode`. `Default` sends no flag and defers to the account setting.
+      description: Permission mode passed as `--permission-mode`. `Default` sends no flag and defers to the account setting. A permission posture chosen on the project's permissions screen overrides this field, sending the posture's own `--permission-mode` value instead and dropping this field's flag, so exactly one `--permission-mode` ever reaches the CLI.
       oneOf:
         - const: default
           title: Default
