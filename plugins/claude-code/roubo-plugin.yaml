@@ -15,6 +15,15 @@ contractVersion: 1
 agentCompatibility:
   minVersion: 2.1.111
   testedCeiling: 2.1.207
+  # Lets the host read the installed CLI version without launching a session, so
+  # the AI Agents screen can show a detected version and a within-range or
+  # above-tested-ceiling verdict on a bench that was never started. Same command
+  # and args as the descriptor's launch-time `versionProbe`; the two must agree.
+  probe:
+    command: claude
+    args:
+      - --version
+    parse: semver
 configSchema:
   type: object
   properties:

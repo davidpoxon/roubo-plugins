@@ -136,11 +136,30 @@ versionProbe: {
 }
 ```
 
+```yaml
+agentCompatibility:
+  minVersion: 2.1.111
+  testedCeiling: 2.1.207
+  probe:
+    command: claude
+    args:
+      - --version
+    parse: semver
+```
+
+The manifest `probe` is what lets the card show a **detected** version on a bench
+that was never started: the descriptor only exists once a launch is translated,
+so without it the card could report the declared window but never what is
+actually installed. It must declare the same `command` and `args` as the
+descriptor's `versionProbe`, or the card and the launch gate would report on two
+different binaries. `src/translate-launch.test.ts` asserts both halves agree.
+
 `minVersion` is the inclusive floor and it blocks: 2.1.111 is where
 `--permission-mode auto` replaced the removed `--enable-auto-mode`, so on
-anything older the posture bindings above would emit a flag value the CLI
-rejects. Below it, the host refuses the launch before spawning anything and shows
-the detected version, the required floor, and the update action.
+anything older the `full-auto` posture binding above would emit a
+`--permission-mode` value the CLI rejects. Below it, the host refuses the launch
+before spawning anything and shows the detected version, the required floor, and
+the update action.
 
 `testedCeiling` is the highest CLI this plugin has been verified against and it
 never blocks. Claude Code ships weekly, so refusing to run on an unrecognised

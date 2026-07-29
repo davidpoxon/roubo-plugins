@@ -185,10 +185,10 @@ const NOTIFICATION_WIRING: NotificationWiring = {
  * launching anything; these are what the launch gate itself enforces.
  *
  * `minVersion` is inclusive and blocking: below 2.1.111 the CLI predates
- * `--permission-mode auto`, so every posture this plugin declares would land on
- * a flag value the CLI rejects. `testedCeiling` never blocks, because the CLI
- * ships weekly and refusing to launch on an unrecognised newer version would age
- * worse than a warning does.
+ * `--permission-mode auto`, so the `full-auto` posture (and a `mode: auto`
+ * config) would land on a `--permission-mode` value the CLI rejects.
+ * `testedCeiling` never blocks, because the CLI ships weekly and refusing to
+ * launch on an unrecognised newer version would age worse than a warning does.
  */
 const VERSION_PROBE: VersionProbeSpec = {
   args: ["--version"],

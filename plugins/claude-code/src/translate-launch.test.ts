@@ -320,6 +320,22 @@ describe("version probe (AP-FR-014, AP-TC-100)", () => {
     expect(manifest).toContain(`testedCeiling: ${capabilities?.versionProbe?.testedCeiling}`);
   });
 
+  it("declares a manifest probe matching the descriptor's, so the card detects without launching", () => {
+    const manifest = readFileSync(new URL("../roubo-plugin.yaml", import.meta.url), "utf-8");
+    const { command, capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    // The manifest probe is what lets the AI Agents card show a detected version
+    // on a bench that was never started (AP-TC-113, AP-TC-114). It must run the
+    // same binary and args as the launch-time probe or the card and the gate
+    // would report on two different CLIs.
+    expect(manifest).toContain("probe:");
+    expect(manifest).toContain(`command: ${command}`);
+    for (const arg of capabilities?.versionProbe?.args ?? []) {
+      expect(manifest).toContain(`- ${arg}`);
+    }
+    expect(manifest).toContain(`parse: ${capabilities?.versionProbe?.parse}`);
+  });
+
   it("declares the probe regardless of config, so the gate is never opted out of", () => {
     const config = { model: "opus", extraArgs: "--verbose" };
     const { capabilities } = translateLaunch({ config, context: contextWith(config) });
