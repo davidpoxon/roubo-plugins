@@ -99,17 +99,18 @@ is the shape the in-tree conformance suite pins. This slice covers the launch
 flags only; jig injection, notification wiring, permissions writes, and version
 gating land in their own slices.
 
-One parity gap is deliberate and not yet closed. The descriptor's `command` is
-the bare name `claude`, which the host spawns verbatim. The built-in path instead
-resolves the binary through `getClaudeBinary()`, which falls back to the
-well-known install locations (`~/.local/bin/claude`, `~/.claude/local/claude`,
-`/opt/homebrew/bin/claude`, `/usr/local/bin/claude`) when `claude` is not on the
-server process's PATH. The launch-descriptor contract exposes no equivalent hook,
-so on an install that relies on one of those fallbacks (notably the
-`~/.claude/local/claude` shim, or a fish login shell) a plugin-launched session
-can fail to spawn where the built-in one succeeds. Closing it needs a host-side
-change: resolving an agent descriptor's `command` through the same well-known-path
-fallback before the PTY spawn. That is tracked as
+Binary discovery is part of that parity too. The descriptor's `command` is the
+bare name `claude`, and the host resolves it before the PTY spawn through the
+same well-known install locations the built-in path uses (`~/.local/bin/claude`,
+`~/.claude/local/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`)
+when `claude` is not on the server process's PATH. So an install that relies on
+one of those fallbacks, notably the `~/.claude/local/claude` shim or a fish login
+shell whose PATH the server never inherits, launches this plugin exactly as it
+launches the built-in integration, and a command that resolves nowhere fails with
+an error naming every location tried. The host-side change is
 [davidpoxon/roubo-development#645](https://github.com/davidpoxon/roubo-development/issues/645).
-Until it lands, the parity claim above covers argv shape and session
-correlation, not binary discovery.
+
+The candidate list lives in the host and is keyed by the command's base name, not
+carried on the descriptor: a declarative, host-agnostic descriptor should not
+hardcode absolute install paths for the machine it happens to run on. This plugin
+therefore keeps declaring the bare `claude`.
