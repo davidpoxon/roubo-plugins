@@ -12,7 +12,7 @@
     "build": "tsup && tsc --build"
   },
   "dependencies": {
-    "@roubo/plugin-sdk": "0.1.1"
+    "@roubo/plugin-sdk": "0.3.0"
   },
   "devDependencies": {
     "tsup": "8.5.1",
