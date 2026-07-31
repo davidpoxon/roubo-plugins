@@ -63,8 +63,7 @@ export async function fetchIssuesPage(
   // different first page, so a sort change must not serve a stale cached page.
   const cacheKey = `${repoFullName}:${options.labels ?? ""}:${options.search ?? ""}:p=${page}:s=${perPage}:sort=${sort}:dir=${direction}`;
   const cached = issueCache.get(cacheKey) as
-    | { data: ListIssuesPage; timestamp: number }
-    | undefined;
+    { data: ListIssuesPage; timestamp: number } | undefined;
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
@@ -224,8 +223,7 @@ export async function fetchBlockingRelationships(
   const sortedNumbers = [...issueNumbers].sort((a, b) => a - b);
   const cacheKey = `${repoFullName}:${sortedNumbers.join(",")}`;
   const cached = blockingCache.get(cacheKey) as
-    | { data: BlockingRelationshipsResult; timestamp: number }
-    | undefined;
+    { data: BlockingRelationshipsResult; timestamp: number } | undefined;
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
@@ -287,8 +285,7 @@ export interface ProjectSummary {
 
 export async function fetchProjects(owner: string): Promise<ProjectSummary[]> {
   const cached = projectCache.get(owner) as
-    | { data: ProjectSummary[]; timestamp: number }
-    | undefined;
+    { data: ProjectSummary[]; timestamp: number } | undefined;
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
@@ -413,8 +410,7 @@ export async function fetchProjectItems(
 
   const cacheKey = `${owner}:${projectNumber}`;
   const cached = projectItemCache.get(cacheKey) as
-    | { data: ProjectItemsPage; timestamp: number }
-    | undefined;
+    { data: ProjectItemsPage; timestamp: number } | undefined;
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
@@ -500,8 +496,7 @@ export interface IssueTypeResult {
 
 export async function fetchIssueTypes(repoFullName: string): Promise<IssueTypeResult> {
   const cached = issueTypesCache.get(repoFullName) as
-    | { data: IssueTypeResult; timestamp: number }
-    | undefined;
+    { data: IssueTypeResult; timestamp: number } | undefined;
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }

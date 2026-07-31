@@ -69,13 +69,11 @@ describe("paginateAlerts", () => {
   });
 
   it("handles uppercase Link header keys", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 200,
-        headers: { Link: "" },
-        body: "[]",
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 200,
+      headers: { Link: "" },
+      body: "[]",
+    }));
     const out = await paginateAlerts<unknown>(transport, "https://api.github.com/x");
     expect(out).toEqual([]);
   });
@@ -92,39 +90,33 @@ describe("paginateAlerts", () => {
   });
 
   it("throws on non-2xx", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 500,
-        headers: {},
-        body: "boom",
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 500,
+      headers: {},
+      body: "boom",
+    }));
     await expect(paginateAlerts<unknown>(transport, "https://api.github.com/x")).rejects.toThrow(
       /status 500/,
     );
   });
 
   it("throws when body is not a JSON array", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 200,
-        headers: {},
-        body: JSON.stringify({ not: "array" }),
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({ not: "array" }),
+    }));
     await expect(paginateAlerts<unknown>(transport, "https://api.github.com/x")).rejects.toThrow(
       /not a JSON array/,
     );
   });
 
   it("respects maxPages", async () => {
-    const transport = vi.fn(
-      async (url: string): Promise<FetchResult> => ({
-        status: 200,
-        headers: { link: `<${url}&next=1>; rel="next"` },
-        body: "[]",
-      }),
-    );
+    const transport = vi.fn(async (url: string): Promise<FetchResult> => ({
+      status: 200,
+      headers: { link: `<${url}&next=1>; rel="next"` },
+      body: "[]",
+    }));
     await paginateAlerts<unknown>(transport, "https://api.github.com/x?page=1", {
       maxPages: 3,
     });
