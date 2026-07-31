@@ -1,13 +1,76 @@
 # @roubo/plugin-codex
 
+Roubo agent plugin that launches Codex CLI sessions in a bench from a configured
+model, reasoning effort, approval policy, and sandbox mode.
+
+## What it is
+
 Bundled Roubo **agent** plugin that launches Codex CLI sessions in a bench,
 honouring the configured model, reasoning effort, approval policy, and sandbox
 mode, plus a free-form additional-CLI-arguments field appended as separate argv
-tokens (AP-FR-020, AP-US-009). It is the second agent-kind plugin, and the one
-that proves the contract is not Claude-shaped: everything Codex-specific lives in
-the argv strings below, and no Codex-specific code exists in Roubo core.
+tokens (AP-FR-020, AP-US-009).
 
-## How it works
+It is the second agent-kind plugin, and the one that proves the contract is not
+Claude-shaped: everything Codex-specific lives in the argv strings below, and no
+Codex-specific code exists in Roubo core. Where the two agents differ (concrete
+config defaults instead of send-no-flag sentinels, no fine-grained rules
+surface, quiescence rather than a hook), the difference is declared by this
+plugin rather than special-cased by the host.
+
+## Install
+
+The plugin drives an agent CLI it does not ship. Install the Codex CLI first, at
+0.144.0 or newer (see [Compatibility window](#compatibility-window)), and check
+that `codex` resolves on the machine.
+
+Install the plugin itself from the first-party Roubo marketplace: open
+**Settings > Marketplace**, pick Codex CLI, review the declared permissions, and
+confirm. The install stages the package into `~/.roubo/plugins/codex/`, and the
+plugin then appears on **Settings > Plugins** as an agent. Consent is checked
+before any launch, so an un-consented plugin stays inert.
+
+To build it from source in this repository instead:
+
+```bash
+npm install
+npm run build -w @roubo/plugin-codex
+```
+
+That writes `plugins/codex/dist/`. Install that directory through
+**Settings > Plugins > Install plugin**, using the local-path source.
+
+## Usage
+
+Agent configuration is not part of `roubo.yaml`. Set the application-level
+defaults on **Settings > AI Agents**, which renders this plugin's manifest
+`configSchema` as a form, then pick Codex CLI as the agent when you open a
+terminal on a bench. The saved defaults live in
+`~/.roubo/agents/_global/codex.yaml`:
+
+```yaml
+# ~/.roubo/agents/_global/codex.yaml
+schemaVersion: 1
+config:
+  model: gpt-5.1-codex
+  effort: high
+  approvalPolicy: never
+  sandbox: read-only
+  extraArgs: --search
+```
+
+A project-scoped override is the same envelope at
+`~/.roubo/agents/<projectId>/codex.yaml`, and preset and per-launch values overlay
+both. The host merges all four layers before calling `translateLaunch`.
+
+That config launches:
+
+```
+codex --model gpt-5.1-codex -c model_reasoning_effort=high -c approval_policy=never -c sandbox_mode=read-only --strict-config --search
+```
+
+## Reference
+
+### How it works
 
 The plugin is **declarative**: it registers a single `translateLaunch({ config,
 context })` method via `defineAgentPlugin()` and emits an `agent-launch`
@@ -46,7 +109,7 @@ with the wrong policy. Codex's _value_ validation is lax by contrast
 (`-c model_reasoning_effort=bogus` launches and echoes `bogus`), which is why
 every enum below is validated in the plugin rather than left to the CLI.
 
-## Config
+### Config
 
 The plugin's `config` block (validated host-side against the manifest
 `configSchema`) accepts:
@@ -77,18 +140,20 @@ values, rather than reaching the CLI as an opaque token.
 `extraArgs` is split by a literal tokenizer, not a shell. Runs of unquoted
 whitespace separate tokens; `'…'` and `"…"` keep a run together and are stripped;
 a backslash escapes the next character (inside double quotes it escapes only a
-quote or another backslash). Every other character is an ordinary literal, so
-`;`, `&`, `|`, `>`, `<`, `$`, parentheses, and backticks carry no meaning: there
-is no command separation, no variable expansion, and no command substitution. The
-host spawns `args` as an argv array and never through a shell, so
-`--foo; rm -rf $HOME "$(whoami)"` becomes the five literal tokens `--foo;`, `rm`,
-`-rf`, `$HOME`, `$(whoami)` and runs nothing. An unbalanced quote or a dangling
-backslash is rejected with a clear error rather than guessed at.
+quote or another backslash).
+
+Every other character is an ordinary literal, so `;`, `&`, `|`, `>`, `<`, `$`,
+parentheses, and backticks carry no meaning: there is no command separation, no
+variable expansion, and no command substitution. The host spawns `args` as an
+argv array and never through a shell, so `--foo; rm -rf $HOME "$(whoami)"`
+becomes the five literal tokens `--foo;`, `rm`, `-rf`, `$HOME`, `$(whoami)` and
+runs nothing. An unbalanced quote or a dangling backslash is rejected with a
+clear error rather than guessed at.
 
 Because `--strict-config` is on, an `extraArgs` token such as `-c bogus_key=1`
 fails the launch before anything spawns, naming the unknown key.
 
-## Permissions
+### Permissions
 
 The host layers the project's permissions model onto the effective config as
 `config.permissions`, above all four configuration layers. Codex maps **only the
@@ -124,13 +189,11 @@ editor** for this agent and injects nothing: a project's allow/ask/deny rules ar
 never serialized into Codex configuration, and this plugin writes no bench
 workspace file at all.
 
-## Notifications
+### Waiting notifications
 
 Codex's waiting signals split per signal, because its two mechanisms cover
-different events.
-
-**Approval waiting rides quiescence**, and it is the mechanism that works today.
-The plugin declares:
+different events. **Approval waiting rides quiescence**, and it is the mechanism
+that works today. The plugin declares:
 
 ```ts
 waitingDetection: { kind: "quiescence-only", debounceMs: 3000 }
@@ -155,6 +218,8 @@ Two caveats worth knowing:
 - The opt-in Codex "pets" companion animates in the waiting state, so the PTY
   never goes quiet and quiescence starves. With a pet enabled, waiting
   notifications will not fire.
+
+### Turn-completion notifications
 
 **Turn completion rides Codex's own `notify` program.** Codex has no
 `--session-id` analogue, so the Roubo session id cannot ride the agent's own
@@ -186,7 +251,7 @@ up, a per-session `notify` override will displace any notifier the user
 configured in their own `config.toml` for the duration of a Roubo-launched
 session, which mirrors what the Claude Code path does to the `Notification` hook.
 
-## Version gating
+### Compatibility window
 
 The plugin declares its supported Codex CLI window in two places, and they are
 asserted to agree (AP-FR-014). The manifest's `agentCompatibility` block is what
@@ -227,43 +292,21 @@ has touched: its whole launch surface was surveyed against the real binary (ever
 flag and configuration key this plugin emits was accepted, and an unknown key
 rejected, under `--strict-config`), and its TUI redraw behaviour was read from the
 pinned source. That validation stopped at the authentication boundary, so no
-completed model turn has been driven through this argv. `minVersion` is the
-inclusive floor and it blocks; 0.144.0 is the first release of that line, so the
-floor brackets the verified version without claiming anything about earlier
-releases. `testedCeiling` never blocks: Codex ships weekly, so refusing an
-unrecognised newer version would age far worse than a warning does. Above the
-ceiling the session launches with a non-blocking notice and an amber chip on the
-card, and a launch failure at that version is attributed to a possibly-stale
-argument map. Raise the ceiling as part of re-verifying against a newer CLI, and
-raise `minVersion` only when something this plugin emits genuinely stops working.
+completed model turn has been driven through this argv.
 
-## Example
+`minVersion` is the inclusive floor and it blocks; 0.144.0 is the first release
+of that line, so the floor brackets the verified version without claiming
+anything about earlier releases. `testedCeiling` never blocks: Codex ships
+weekly, so refusing an unrecognised newer version would age far worse than a
+warning does.
 
-Agent config is not part of `roubo.yaml`. Application-level defaults live in
-`~/.roubo/agents/_global/codex.yaml`:
+Above the ceiling the session launches with a non-blocking notice and an amber
+chip on the card, and a launch failure at that version is attributed to a
+possibly-stale argument map. Raise the ceiling as part of re-verifying against a
+newer CLI, and raise `minVersion` only when something this plugin emits genuinely
+stops working.
 
-```yaml
-# ~/.roubo/agents/_global/codex.yaml
-schemaVersion: 1
-config:
-  model: gpt-5.1-codex
-  effort: high
-  approvalPolicy: never
-  sandbox: read-only
-  extraArgs: --search
-```
-
-A project-scoped override is the same envelope at
-`~/.roubo/agents/<projectId>/codex.yaml`, and preset and per-launch values overlay
-both. The host merges all four layers before calling `translateLaunch`.
-
-That config launches:
-
-```
-codex --model gpt-5.1-codex -c model_reasoning_effort=high -c approval_policy=never -c sandbox_mode=read-only --strict-config --search
-```
-
-## Lifecycle parity
+### Lifecycle parity
 
 Because the descriptor is executed by the same host launch pipeline every other
 agent runs through, a Codex session behaves like any other in a bench. Jig
@@ -280,3 +323,14 @@ login-shell PATH resolution every agent command goes through, so an install that
 Roubo's own process environment would not see still launches. The plugin
 therefore keeps declaring the bare `codex` rather than an absolute path for the
 machine it happens to run on.
+
+## Links
+
+- [Plugin author guide](https://github.com/davidpoxon/roubo/blob/main/docs/plugin-sdk.md):
+  the agent contract, `defineAgentPlugin`, the launch descriptor, and the
+  `kind: agent` manifest.
+- [`@roubo/plugin-claude-code`](../claude-code/README.md): the sibling agent
+  plugin, and the one that exercises the fine-grained rules capability this one
+  omits.
+- [PUBLISHING.md](../../PUBLISHING.md): the catalog format and publish pipeline
+  for running your own marketplace.
