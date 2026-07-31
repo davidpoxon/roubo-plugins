@@ -1,0 +1,113 @@
+id: codex
+name: Codex CLI
+version: 0.1.0
+description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
+kind: agent
+roubo: ^1.0.0
+entry: ./dist/index.js
+contractVersion: 1
+# The agent-CLI compatibility window (AP-FR-014). Codex CLI 0.144.1 is the only
+# version any Roubo work has touched: spike #502 surveyed its whole launch
+# surface against the real binary (every flag and config key below was accepted
+# or rejected by it) and spike #505 read 0.144.1's TUI source. `minVersion` is
+# the inclusive floor a launch is blocked below; 0.144.0 is the first release of
+# that line, so the floor brackets the verified version without claiming
+# anything about the releases before it. `testedCeiling` is the highest CLI this
+# plugin was verified against, and it warns rather than blocks: Codex ships
+# weekly, so refusing an unrecognised newer version would age far worse than a
+# staleness notice does.
+agentCompatibility:
+  minVersion: 0.144.0
+  testedCeiling: 0.144.1
+  # Lets the host read the installed CLI version without launching a session, so
+  # the AI Agents screen can show a detected version and a within-range or
+  # above-tested-ceiling verdict on a bench that was never started. Same command
+  # and args as the descriptor's launch-time `versionProbe`; the two must agree.
+  # `codex --version` prints `codex-cli 0.144.1`, which `parse: semver` reads.
+  probe:
+    command: codex
+    args:
+      - --version
+    parse: semver
+configSchema:
+  type: object
+  properties:
+    model:
+      title: Model
+      type: string
+      default: gpt-5.2-codex
+      description: The model the session runs on, passed as `--model`. `Account default` sends no `--model` flag and defers to the Codex configuration.
+      oneOf:
+        - const: default
+          title: Account default
+        - const: gpt-5.2-codex
+          title: GPT-5.2 Codex
+        - const: gpt-5.1-codex
+          title: GPT-5.1 Codex
+        - const: gpt-5.1-codex-mini
+          title: GPT-5.1 Codex mini
+    effort:
+      title: Reasoning effort
+      type: string
+      default: medium
+      # Unlike the Claude Code plugin's closed-choice fields, the three Codex
+      # axes below have CONCRETE defaults rather than a "send no flag" sentinel.
+      # Codex resolves an unset axis from the user's own `~/.codex/config.toml`,
+      # so a sentinel would make the launch depend on a file Roubo does not
+      # manage: for the approval and sandbox axes that is a safety footgun, and
+      # for effort it would make the argv the AI Agents form shows differ from
+      # the argv that actually launches. An unsaved field therefore behaves as
+      # the value the form displays.
+      description: Reasoning effort passed as `-c model_reasoning_effort=`.
+      oneOf:
+        - const: minimal
+          title: Minimal
+        - const: low
+          title: Low
+        - const: medium
+          title: Medium
+        - const: high
+          title: High
+        - const: xhigh
+          title: Extra high
+    approvalPolicy:
+      title: Approval policy
+      type: string
+      default: on-request
+      description: When Codex asks before acting, passed as `-c approval_policy=`. A permission posture chosen on the project's permissions screen overrides this field, sending the posture's own value instead, so exactly one `approval_policy` override ever reaches the CLI.
+      oneOf:
+        - const: untrusted
+          title: Untrusted
+        - const: on-request
+          title: On request
+        - const: never
+          title: Never
+    sandbox:
+      title: Sandbox
+      type: string
+      default: workspace-write
+      description: What the session may write, passed as `-c sandbox_mode=`. A permission posture chosen on the project's permissions screen overrides this field, sending the posture's own value instead, so exactly one `sandbox_mode` override ever reaches the CLI.
+      oneOf:
+        - const: read-only
+          title: Read only
+        - const: workspace-write
+          title: Workspace write
+        - const: danger-full-access
+          title: Full access
+    extraArgs:
+      title: Additional CLI arguments
+      type: string
+      description: Free-form extra arguments appended after the generated flags. Split into discrete argv tokens with quoting honoured; shell metacharacters are never interpreted.
+permissions:
+  network:
+    hosts: []
+  credentials:
+    slots: []
+  filesystem:
+    paths: []
+  # Declarative agent plugin: translateLaunch() only emits an AgentLaunchDescriptor
+  # the host validates and executes, so the plugin spawns nothing itself. An agent
+  # plugin must declare `processes: false`; the descriptor is its only write route.
+  processes: false
+  ports: false
+  docker: false
