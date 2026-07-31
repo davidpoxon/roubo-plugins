@@ -28,8 +28,8 @@ function fixtureResponse(name: keyof typeof fixtures, status = 200): FetchResult
 
 describe("detectTokenScopes", () => {
   it("returns the parsed scope list when X-OAuth-Scopes is present (with security_events)", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => fixtureResponse("with-security-events"),
+    const transport = vi.fn(async (): Promise<FetchResult> =>
+      fixtureResponse("with-security-events"),
     );
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
@@ -43,8 +43,8 @@ describe("detectTokenScopes", () => {
   });
 
   it("reports lacking when scopes are present but security_events is not in the list", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => fixtureResponse("without-security-events"),
+    const transport = vi.fn(async (): Promise<FetchResult> =>
+      fixtureResponse("without-security-events"),
     );
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
@@ -75,26 +75,22 @@ describe("detectTokenScopes", () => {
   });
 
   it("accepts a lowercase x-oauth-scopes header key", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 200,
-        headers: { "x-oauth-scopes": "repo,security_events" },
-        body: "{}",
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 200,
+      headers: { "x-oauth-scopes": "repo,security_events" },
+      body: "{}",
+    }));
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
     expect(result).toEqual({ kind: "scopes", scopes: ["repo", "security_events"] });
   });
 
   it("accepts an array-valued header (joined with commas before parsing)", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 200,
-        headers: { "X-OAuth-Scopes": ["repo", "security_events,read:org"] },
-        body: "{}",
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 200,
+      headers: { "X-OAuth-Scopes": ["repo", "security_events,read:org"] },
+      body: "{}",
+    }));
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
     expect(result).toEqual({
@@ -104,13 +100,11 @@ describe("detectTokenScopes", () => {
   });
 
   it("returns kind:'error' with the status when /user is non-2xx (e.g. 401)", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-        body: '{"message":"Bad credentials"}',
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+      body: '{"message":"Bad credentials"}',
+    }));
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
     expect(result.kind).toBe("error");
@@ -176,13 +170,11 @@ describe("detectTokenScopes", () => {
   });
 
   it("parses the authenticated login from the /user body (same request as the scopes probe)", async () => {
-    const transport = vi.fn(
-      async (): Promise<FetchResult> => ({
-        status: 200,
-        headers: { "X-OAuth-Scopes": "repo" },
-        body: JSON.stringify({ login: "monalisa", id: 7 }),
-      }),
-    );
+    const transport = vi.fn(async (): Promise<FetchResult> => ({
+      status: 200,
+      headers: { "X-OAuth-Scopes": "repo" },
+      body: JSON.stringify({ login: "monalisa", id: 7 }),
+    }));
 
     const result = await detectTokenScopes(transport, "https://api.github.com");
     expect(result).toEqual({ kind: "scopes", scopes: ["repo"], login: "monalisa" });
@@ -191,13 +183,11 @@ describe("detectTokenScopes", () => {
   it("omits login when the /user body is empty, login-less, or unparseable (never throws)", async () => {
     const bodies = ["{}", '{"id":7}', "not json", ""];
     for (const body of bodies) {
-      const transport = vi.fn(
-        async (): Promise<FetchResult> => ({
-          status: 200,
-          headers: { "X-OAuth-Scopes": "repo" },
-          body,
-        }),
-      );
+      const transport = vi.fn(async (): Promise<FetchResult> => ({
+        status: 200,
+        headers: { "X-OAuth-Scopes": "repo" },
+        body,
+      }));
 
       const result = await detectTokenScopes(transport, "https://api.github.com");
       expect(result).toEqual({ kind: "scopes", scopes: ["repo"] });

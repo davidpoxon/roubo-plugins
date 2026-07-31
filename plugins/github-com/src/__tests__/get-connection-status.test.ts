@@ -12,13 +12,11 @@ function queueUserResponse(
   headers: Record<string, string | string[]>,
   status = 200,
 ): void {
-  mocks.mockHost.fetch.mockImplementationOnce(
-    async (): Promise<FetchResult> => ({
-      status,
-      headers,
-      body: JSON.stringify({ login: "octocat", id: 1 }),
-    }),
-  );
+  mocks.mockHost.fetch.mockImplementationOnce(async (): Promise<FetchResult> => ({
+    status,
+    headers,
+    body: JSON.stringify({ login: "octocat", id: 1 }),
+  }));
 }
 
 describe("getConnectionStatus (github-com)", () => {
