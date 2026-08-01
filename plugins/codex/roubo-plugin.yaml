@@ -1,11 +1,35 @@
 id: codex
 name: Codex CLI
-version: 0.1.0
+version: 0.2.0
 description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
 kind: agent
-roubo: ^1.0.0
+# `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
+# is strict, so a host predating it would reject this whole manifest on an
+# unrecognised key rather than ignore the field. The floor is pinned here so such
+# a host refuses the plugin on the compatibility range it reports instead.
+roubo: ^1.5.0
 entry: ./dist/index.js
 contractVersion: 1
+# Where the Codex CLI installs itself, probed in this order when `codex` is not
+# on the PATH the Roubo server inherits. Read off the CLI's own installers rather
+# than guessed: the official shell installer symlinks its versioned store under
+# `$CODEX_INSTALL_DIR`, which defaults to `~/.local/bin`, while both
+# `brew install --cask codex` and `npm install -g @openai/codex` land on their
+# prefix's `bin`, which is `/opt/homebrew/bin` on Apple Silicon and
+# `/usr/local/bin` on Intel Homebrew and on npm's own default global prefix.
+#
+# Most specific first, because the host takes the first candidate that is a
+# regular executable file: a per-user install wins over a machine-wide one, so a
+# user who installed the CLI for themselves gets their own binary.
+#
+# A version-scoped Node prefix (nvm, volta) is deliberately absent. Its path
+# embeds the Node version, which cannot be written statically and which this
+# field forbids templating, and those installs already resolve through PATH,
+# which the host probes before this list.
+agentInstallLocations:
+  - ~/.local/bin/codex
+  - /opt/homebrew/bin/codex
+  - /usr/local/bin/codex
 # The agent-CLI compatibility window (AP-FR-014). Codex CLI 0.144.1 is the only
 # version any Roubo work has touched: spike #502 surveyed its whole launch
 # surface against the real binary (every flag and config key below was accepted

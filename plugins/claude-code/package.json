@@ -1,6 +1,6 @@
 {
   "name": "@roubo/plugin-claude-code",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Bundled Roubo agent plugin that launches Claude Code sessions with configured model, effort, mode, and extra CLI arguments.",
   "author": "David Poxon",

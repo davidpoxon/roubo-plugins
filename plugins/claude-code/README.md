@@ -251,20 +251,41 @@ produces a byte-identical `.claude/settings.local.json` to the built-in writer
 for the same inputs. Jig injection lands in its own slice.
 
 Binary discovery is part of that parity too. The descriptor's `command` is the
-bare name `claude`, and the host resolves it before the PTY spawn through the
-same well-known install locations the built-in path uses (`~/.local/bin/claude`,
-`~/.claude/local/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`)
-when `claude` is not on the server process's PATH. So an install that relies on
-one of those fallbacks, notably the `~/.claude/local/claude` shim or a fish login
-shell whose PATH the server never inherits, launches this plugin exactly as it
-launches the built-in integration, and a command that resolves nowhere fails with
-an error naming every location tried. The host-side change is
-[davidpoxon/roubo-development#645](https://github.com/davidpoxon/roubo-development/issues/645).
+bare name `claude`, and when it is not on the server process's PATH the host
+resolves it before the PTY spawn through this plugin's manifest
+`agentInstallLocations`:
 
-The candidate list lives in the host and is keyed by the command's base name, not
-carried on the descriptor: a declarative, host-agnostic descriptor should not
-hardcode absolute install paths for the machine it happens to run on. This plugin
-therefore keeps declaring the bare `claude`.
+```yaml
+agentInstallLocations:
+  - ~/.local/bin/claude
+  - ~/.claude/local/claude
+  - /opt/homebrew/bin/claude
+  - /usr/local/bin/claude
+```
+
+So an install that relies on one of those fallbacks, notably the
+`~/.claude/local/claude` shim or a fish login shell whose PATH the server never
+inherits, launches exactly as it did under the built-in integration, and a
+command that resolves nowhere fails with an error naming every location tried.
+The host-side fallback is
+[davidpoxon/roubo-development#645](https://github.com/davidpoxon/roubo-development/issues/645);
+moving the list onto the manifest is
+[davidpoxon/roubo-development#712](https://github.com/davidpoxon/roubo-development/issues/712).
+
+That list is an exact superset of the host's own legacy table for the `claude`
+base name, in the same order, and deliberately so: a declared list **replaces**
+that table for this CLI rather than merging with it, so dropping an entry would
+strand an install the host resolves today, and reordering one would change which
+binary wins where two are present. Append when a new install location appears;
+never remove or reorder. Declaring the list needs a host reporting API `1.5.0` or
+newer, which is what this plugin's `roubo: ^1.5.0` range pins.
+
+Owning the list here rather than in the host is the point: a declarative,
+host-agnostic descriptor should not hardcode absolute install paths for the
+machine it happens to run on, and Roubo's core should not accrue per-agent
+knowledge. Install locations are manifest metadata about where a CLI puts itself,
+so this plugin keeps declaring the bare `claude` on the descriptor and answers
+the "where does it live" question from the manifest instead.
 
 ## Links
 
