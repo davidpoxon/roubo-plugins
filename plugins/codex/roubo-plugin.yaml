@@ -4,9 +4,16 @@ version: 0.2.0
 description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
 kind: agent
 # `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
-# is strict, so a host predating it would reject this whole manifest on an
-# unrecognised key rather than ignore the field. The floor is pinned here so such
-# a host refuses the plugin on the compatibility range it reports instead.
+# is strict, so a host predating the field rejects this whole manifest on the
+# unrecognised key rather than ignoring it. Pinning the floor does not change
+# that: the host parses the manifest before it reads this range, so such a host
+# reports an invalid manifest and never gets as far as a compatibility verdict.
+# What the range does buy is the hosts it CAN speak to, one that knows the field
+# but sits below 1.5.0, which refuses the plugin cleanly and names the version it
+# reports. The other half of the gate is release order: this plugin ships only
+# alongside a host carrying the field, so no released host meets it as an
+# unknown key. Making the host answer with the version it needs, so the gate
+# stops resting on release order, is davidpoxon/roubo-development#719.
 roubo: ^1.5.0
 entry: ./dist/index.js
 contractVersion: 1

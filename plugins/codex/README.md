@@ -23,6 +23,12 @@ The plugin drives an agent CLI it does not ship. Install the Codex CLI first, at
 0.144.0 or newer (see [Compatibility window](#compatibility-window)), and check
 that `codex` resolves on the machine.
 
+There is a Roubo prerequisite too, from 0.2.0 on: the host must report plugin API
+`1.5.0` or newer, the release that carries the `agentInstallLocations` this
+plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what the
+manifest's `roubo: ^1.5.0` pins, and an older Roubo does not install this
+version, so update Roubo first.
+
 The plugin itself is not yet published to the first-party Roubo marketplace: its
 id is absent from `INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs`, which
 is the list the catalog is packed and signed from, so no Codex CLI card appears

@@ -336,6 +336,29 @@ describe("version probe (AP-FR-014, AP-TC-100)", () => {
     expect(manifest).toContain(`parse: ${capabilities?.versionProbe?.parse}`);
   });
 
+  it("declares the host's whole legacy claude table, in order, so no working install regresses", () => {
+    const manifest = readFileSync(new URL("../roubo-plugin.yaml", import.meta.url), "utf-8");
+
+    // A declared list REPLACES the host's frozen `wellKnownPathsFor("claude")`
+    // table rather than merging with it, so this manifest owes that table every
+    // entry in its order: drop one and an install the host resolves today is
+    // stranded, reorder one and a different binary wins where two are present.
+    // Nothing on the host side cross-checks the two lists, so the pin lives here.
+    const block = manifest.split(/^agentInstallLocations:\n/m)[1] ?? "";
+    const declared: string[] = [];
+    for (const line of block.split("\n")) {
+      if (!line.startsWith("  - ")) break;
+      declared.push(line.slice("  - ".length).trim());
+    }
+
+    expect(declared).toEqual([
+      "~/.local/bin/claude",
+      "~/.claude/local/claude",
+      "/opt/homebrew/bin/claude",
+      "/usr/local/bin/claude",
+    ]);
+  });
+
   it("declares the probe regardless of config, so the gate is never opted out of", () => {
     const config = { model: "opus", extraArgs: "--verbose" };
     const { capabilities } = translateLaunch({ config, context: contextWith(config) });

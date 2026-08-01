@@ -22,6 +22,12 @@ The plugin drives an agent CLI it does not ship. Install the Claude Code CLI
 first, at 2.1.111 or newer (see [Compatibility window](#compatibility-window)),
 and check that `claude` resolves on the machine.
 
+There is a Roubo prerequisite too, from 0.4.0 on: the host must report plugin API
+`1.5.0` or newer, the release that carries the `agentInstallLocations` this
+plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what the
+manifest's `roubo: ^1.5.0` pins. An older Roubo does not install this version, so
+update Roubo first; 0.3.0 remains the last release that runs on a pre-1.5.0 host.
+
 Install the plugin itself from the first-party Roubo marketplace: open
 **Settings > Marketplace**, pick Claude Code, review the declared permissions,
 and confirm. The install stages the package into `~/.roubo/plugins/claude-code/`,
