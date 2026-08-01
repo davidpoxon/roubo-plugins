@@ -35,8 +35,10 @@ npm install
 npm run build -w @roubo/plugin-claude-code
 ```
 
-That writes `plugins/claude-code/dist/`. Install that directory through
-**Settings > Plugins > Install plugin**, using the local-path source.
+That writes `plugins/claude-code/dist/`, which the manifest's
+`entry: ./dist/index.js` points at. Install the plugin directory
+`plugins/claude-code/` itself, the one holding `roubo-plugin.yaml`, through
+**Settings > Plugins > Install plugin** on the **Local directory** tab.
 
 ## Usage
 

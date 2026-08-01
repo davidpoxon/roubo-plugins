@@ -13,17 +13,19 @@ own.
 
 Roubo has three plugin kinds, and the manifest's `kind` field picks one:
 
-- **Integration** plugins connect an issue tracker or source of work. Bundled:
-  [`github-com`](./plugins/github-com/README.md).
-- **Component** plugins provision what a bench runs. Bundled:
+- **Integration** plugins connect an issue tracker or source of work.
+  First-party: [`github-com`](./plugins/github-com/README.md).
+- **Component** plugins provision what a bench runs. First-party:
   [`process`](./plugins/process/README.md) and
   [`database`](./plugins/database/README.md).
-- **Agent** plugins launch an AI coding agent in a bench. Bundled:
+- **Agent** plugins launch an AI coding agent in a bench. First-party:
   [`claude-code`](./plugins/claude-code/README.md) and
   [`codex`](./plugins/codex/README.md).
 
-Every kind is declarative: a plugin returns a descriptor the host validates and
-executes, rather than driving the host itself.
+Component and agent plugins are declarative: they return a descriptor the host
+validates and executes, rather than driving the host themselves. Integration
+plugins implement request methods the host calls, within the permissions their
+manifest declares.
 
 ## Install
 
@@ -31,6 +33,11 @@ To use these plugins, install them from within Roubo rather than from this
 repository: open **Settings > Marketplace**, pick the plugin, review its
 declared permissions, and confirm. Each plugin's own README covers its
 prerequisites and where its configuration lives.
+
+`codex` is the exception: it is not yet in the published first-party catalog
+(`INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs` is what the catalog is
+built from), so it installs from a local directory today. Its README covers the
+route.
 
 To work on them, clone this repository. You need Node.js >= 24.14.0.
 

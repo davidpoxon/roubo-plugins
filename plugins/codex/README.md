@@ -23,21 +23,22 @@ The plugin drives an agent CLI it does not ship. Install the Codex CLI first, at
 0.144.0 or newer (see [Compatibility window](#compatibility-window)), and check
 that `codex` resolves on the machine.
 
-Install the plugin itself from the first-party Roubo marketplace: open
-**Settings > Marketplace**, pick Codex CLI, review the declared permissions, and
-confirm. The install stages the package into `~/.roubo/plugins/codex/`, and the
-plugin then appears on **Settings > Plugins** as an agent. Consent is checked
-before any launch, so an un-consented plugin stays inert.
-
-To build it from source in this repository instead:
+The plugin itself is not yet published to the first-party Roubo marketplace: its
+id is absent from `INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs`, which
+is the list the catalog is packed and signed from, so no Codex CLI card appears
+on **Settings > Marketplace** yet. Build it from source instead:
 
 ```bash
 npm install
 npm run build -w @roubo/plugin-codex
 ```
 
-That writes `plugins/codex/dist/`. Install that directory through
-**Settings > Plugins > Install plugin**, using the local-path source.
+That writes `plugins/codex/dist/`, which the manifest's
+`entry: ./dist/index.js` points at. Install the plugin directory
+`plugins/codex/` itself, the one holding `roubo-plugin.yaml`, through
+**Settings > Plugins > Install plugin** on the **Local directory** tab. It then
+appears on **Settings > Plugins** as an agent. Consent is checked before any
+launch, so an un-consented plugin stays inert.
 
 ## Usage
 
