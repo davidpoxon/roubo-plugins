@@ -331,7 +331,7 @@ describe("codex waiting detection and notifications (AP-FR-013, AP-TC-067, AP-TC
     expect(capabilities?.notification).toEqual({
       kind: "spawned-notifier",
       event: "turn-complete",
-      carrier: { args: ["-c", 'notify=["roubo-codex-notify","{{sessionId}}"]'] },
+      carrier: { args: ["-c", 'notify=["roubo-notify","{{sessionId}}"]'] },
       payload: "json-arg",
       correlation: { source: "template", template: "{{sessionId}}" },
     });

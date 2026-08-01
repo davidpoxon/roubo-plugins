@@ -230,7 +230,7 @@ identity the way it does for Claude Code; it rides the notifier's argv instead:
 notification: {
   kind: "spawned-notifier",
   event: "turn-complete",
-  carrier: { args: ["-c", 'notify=["roubo-codex-notify","{{sessionId}}"]'] },
+  carrier: { args: ["-c", 'notify=["roubo-notify","{{sessionId}}"]'] },
   payload: "json-arg",
   correlation: { source: "template", template: "{{sessionId}}" },
 }
@@ -243,14 +243,13 @@ parsing of Codex's own thread and turn ids. `notify` fires on turn completion
 **only**, never on an approval prompt, which is why approval waiting rides
 quiescence above rather than this wiring.
 
-The host does not execute the `spawned-notifier` variant yet: nothing consumes
-`carrier.args`, and the `roubo-codex-notify` program this names is core's to
-ship alongside the receiving endpoint. Until it does, this is a
-forward-compatible declaration with no runtime effect, and quiescence is the
-mechanism that actually raises Codex notifications. When the host does wire it
-up, a per-session `notify` override will displace any notifier the user
-configured in their own `config.toml` for the duration of a Roubo-launched
-session, which mirrors what the Claude Code path does to the `Notification` hook.
+The host executes the `spawned-notifier` variant: it consumes `carrier.args`,
+and `roubo-notify` is the agent-generic notifier program core ships alongside
+the receiving endpoint. Core prepends that program's install directory to the
+agent's PATH, so the bare name above resolves without an absolute path. A
+per-session `notify` override displaces any notifier the user configured in
+their own `config.toml` for the duration of a Roubo-launched session, which
+mirrors what the Claude Code path does to the `Notification` hook.
 
 ### Compatibility window
 

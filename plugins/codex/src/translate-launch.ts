@@ -178,13 +178,14 @@ export function translateLaunch(params: {
  * (`payload: "json-arg"`), so the notifier receives the Roubo session id and the
  * payload together and correlation needs no parsing of Codex's own ids.
  *
- * Two limits worth stating plainly. `notify` fires on turn completion ONLY,
+ * One limit worth stating plainly: `notify` fires on turn completion ONLY,
  * never on an approval prompt, which is why approval-waiting rides
- * `waitingDetection` below rather than this wiring. And the host does not
- * execute the `spawned-notifier` variant yet (nothing consumes `carrier.args`,
- * and the notifier program this names is core's to ship), so today this is a
- * forward-compatible declaration with no runtime effect: quiescence is the
- * mechanism that actually raises Codex notifications.
+ * `waitingDetection` below rather than this wiring.
+ *
+ * The host executes this variant (issue #698): it consumes `carrier.args`, and
+ * `roubo-notify` is the agent-generic notifier program core ships and whose
+ * install directory it prepends to the agent's PATH, so the bare program name
+ * here resolves without an absolute path.
  *
  * A per-session `notify` override displaces any notifier the user configured in
  * their own `config.toml` for the duration of a Roubo-launched session, which
@@ -193,7 +194,7 @@ export function translateLaunch(params: {
 const NOTIFICATION_WIRING: NotificationWiring = {
   kind: "spawned-notifier",
   event: "turn-complete",
-  carrier: { args: ["-c", 'notify=["roubo-codex-notify","{{sessionId}}"]'] },
+  carrier: { args: ["-c", 'notify=["roubo-notify","{{sessionId}}"]'] },
   payload: "json-arg",
   correlation: { source: "template", template: "{{sessionId}}" },
 };
