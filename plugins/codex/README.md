@@ -23,6 +23,12 @@ The plugin drives an agent CLI it does not ship. Install the Codex CLI first, at
 0.144.0 or newer (see [Compatibility window](#compatibility-window)), and check
 that `codex` resolves on the machine.
 
+There is a Roubo prerequisite too, from 0.2.0 on: the host must report plugin API
+`1.5.0` or newer, the release that carries the `agentInstallLocations` this
+plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what the
+manifest's `roubo: ^1.5.0` pins, and an older Roubo does not install this
+version, so update Roubo first.
+
 The plugin itself is not yet published to the first-party Roubo marketplace: its
 id is absent from `INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs`, which
 is the list the catalog is packed and signed from, so no Codex CLI card appears
@@ -318,10 +324,35 @@ settings-file write and no hook payload.
 
 Binary discovery is part of that parity too. The descriptor's `command` is the
 bare name `codex`, and the host resolves it before the PTY spawn through the same
-login-shell PATH resolution every agent command goes through, so an install that
-Roubo's own process environment would not see still launches. The plugin
-therefore keeps declaring the bare `codex` rather than an absolute path for the
-machine it happens to run on.
+login-shell PATH resolution every agent command goes through. When that PATH does
+not hold it, notably on a Finder or Dock launch or a fish login whose environment
+the server never inherits, the host falls back to this plugin's manifest
+`agentInstallLocations`:
+
+```yaml
+agentInstallLocations:
+  - ~/.local/bin/codex
+  - /opt/homebrew/bin/codex
+  - /usr/local/bin/codex
+```
+
+Those are the CLI's own installers' targets, not guesses. The official shell
+installer symlinks its versioned store under `$CODEX_INSTALL_DIR`, defaulting to
+`~/.local/bin`, and `brew install --cask codex` and `npm install -g @openai/codex`
+both land on their prefix's `bin`. They are ordered most specific first, because
+the host takes the first candidate that is a regular executable file, so a
+per-user install wins over a machine-wide one. A version-scoped Node prefix (nvm,
+volta) is absent by design: its path embeds the Node version, which this field
+cannot template, and such an install already resolves through PATH, which is
+probed first.
+
+Every entry is a candidate rather than an instruction. The host does the probing,
+skips anything that is not an executable regular file, and a command found
+nowhere still fails the launch with an error naming every location tried. So the
+plugin keeps declaring the bare `codex` rather than an absolute path for the
+machine it happens to run on: the install locations are manifest metadata, and
+the descriptor stays host-agnostic. Declaring them needs a host reporting API
+`1.5.0` or newer, which is what this plugin's `roubo: ^1.5.0` range pins.
 
 ## Links
 

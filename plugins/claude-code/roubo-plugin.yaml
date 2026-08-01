@@ -1,11 +1,43 @@
 id: claude-code
 name: Claude Code
-version: 0.3.0
+version: 0.4.0
 description: Bundled agent plugin that launches Claude Code sessions with a configured model, effort, mode, and extra CLI arguments.
 kind: agent
-roubo: ^1.0.0
+# `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
+# is strict, so a host predating the field rejects this whole manifest on the
+# unrecognised key rather than ignoring it. Pinning the floor does not change
+# that: the host parses the manifest before it reads this range, so such a host
+# reports an invalid manifest and never gets as far as a compatibility verdict.
+# What the range does buy is the hosts it CAN speak to, one that knows the field
+# but sits below 1.5.0, which refuses the plugin cleanly and names the version it
+# reports. The other half of the gate is release order: this plugin ships only
+# alongside a host carrying the field, so no released host meets it as an
+# unknown key. Making the host answer with the version it needs, so the gate
+# stops resting on release order, is davidpoxon/roubo-development#719.
+roubo: ^1.5.0
 entry: ./dist/index.js
 contractVersion: 1
+# Where the Claude Code CLI installs itself, probed in this order when `claude`
+# is not on the PATH the Roubo server inherits: the native installer's per-user
+# path, the legacy local-install shim, then Homebrew on Apple Silicon and on
+# Intel, which is also npm's default global prefix.
+#
+# This list is an exact superset of the host's own legacy table for the `claude`
+# base name, in the same order, and that is load-bearing rather than incidental.
+# A declared list REPLACES that table for this CLI rather than merging with it,
+# so dropping an entry would strand an install the host resolves today, and
+# reordering one would change which binary wins where two are present. Add to the
+# tail when a new install location appears; do not remove or reorder.
+#
+# The host's table stays where it is, frozen: it predates this field and is what
+# an agent plugin declaring nothing still falls back to. Declaring the list here
+# is what makes this plugin, rather than Roubo's core, the owner of its own CLI's
+# install knowledge.
+agentInstallLocations:
+  - ~/.local/bin/claude
+  - ~/.claude/local/claude
+  - /opt/homebrew/bin/claude
+  - /usr/local/bin/claude
 # The agent-CLI compatibility window (AP-FR-014). `minVersion` is the inclusive
 # floor a launch is blocked below: 2.1.111 is where `--permission-mode auto`
 # replaced the removed `--enable-auto-mode` flag this plugin no longer emits.
