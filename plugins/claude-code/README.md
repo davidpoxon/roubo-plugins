@@ -1,12 +1,76 @@
 # @roubo/plugin-claude-code
 
+Roubo agent plugin that launches Claude Code sessions in a bench from a
+configured model, effort, and permission mode.
+
+## What it is
+
 Bundled Roubo **agent** plugin that launches Claude Code sessions in a bench,
 honouring the configured model, reasoning effort, and permission mode, plus a
 free-form additional-CLI-arguments field appended as separate argv tokens
 (AP-FR-017, AP-US-008). It is the first agent-kind plugin, built against the
 published `@roubo/plugin-sdk` agent contract.
 
-## How it works
+Without it, one specific agent CLI's argument map would have to live in Roubo
+core. The plugin moves it out: everything Claude-Code-specific is a string this
+plugin emits, so supporting an agent becomes a plugin release rather than a core
+change.
+
+## Install
+
+The plugin drives an agent CLI it does not ship. Install the Claude Code CLI
+first, at 2.1.111 or newer (see [Compatibility window](#compatibility-window)),
+and check that `claude` resolves on the machine.
+
+Install the plugin itself from the first-party Roubo marketplace: open
+**Settings > Marketplace**, pick Claude Code, review the declared permissions,
+and confirm. The install stages the package into `~/.roubo/plugins/claude-code/`,
+and the plugin then appears on **Settings > Plugins** as an agent. Consent is
+checked before any launch, so an un-consented plugin stays inert.
+
+To build it from source in this repository instead:
+
+```bash
+npm install
+npm run build -w @roubo/plugin-claude-code
+```
+
+That writes `plugins/claude-code/dist/`, which the manifest's
+`entry: ./dist/index.js` points at. Install the plugin directory
+`plugins/claude-code/` itself, the one holding `roubo-plugin.yaml`, through
+**Settings > Plugins > Install plugin** on the **Local directory** tab.
+
+## Usage
+
+Agent configuration is not part of `roubo.yaml`. Set the application-level
+defaults on **Settings > AI Agents**, which renders this plugin's manifest
+`configSchema` as a form, then pick Claude Code as the agent when you open a
+terminal on a bench. The saved defaults live in
+`~/.roubo/agents/_global/claude-code.yaml`:
+
+```yaml
+# ~/.roubo/agents/_global/claude-code.yaml
+schemaVersion: 1
+config:
+  model: opus
+  effort: high
+  mode: plan
+  extraArgs: --fallback-model sonnet --verbose
+```
+
+A project-scoped override is the same envelope at
+`~/.roubo/agents/<projectId>/claude-code.yaml`, and preset and per-launch values
+overlay both. The host merges all four layers before calling `translateLaunch`.
+
+That config launches:
+
+```
+claude --model opus --effort high --permission-mode plan --fallback-model sonnet --verbose --session-id <uuid>
+```
+
+## Reference
+
+### How it works
 
 The plugin is **declarative**: it registers a single `translateLaunch({ config,
 context })` method via `defineAgentPlugin()` and emits an `agent-launch`
@@ -30,7 +94,7 @@ extra argument can override a generated flag rather than be overridden by it.
 `--session-id <uuid>` stays the stable argv tail the host correlates a session
 on, and the positional prompt (capped at 100,000 characters) closes the line.
 
-## Config
+### Config
 
 The plugin's `config` block (validated host-side against the manifest
 `configSchema`) accepts:
@@ -56,15 +120,17 @@ values, rather than reaching the CLI as an opaque token.
 `extraArgs` is split by a literal tokenizer, not a shell. Runs of unquoted
 whitespace separate tokens; `'…'` and `"…"` keep a run together and are stripped;
 a backslash escapes the next character (inside double quotes it escapes only a
-quote or another backslash). Every other character is an ordinary literal, so
-`;`, `&`, `|`, `>`, `<`, `$`, parentheses, and backticks carry no meaning: there
-is no command separation, no variable expansion, and no command substitution. The
-host spawns `args` as an argv array and never through a shell, so
-`--foo; rm -rf $HOME "$(whoami)"` becomes the five literal tokens `--foo;`, `rm`,
-`-rf`, `$HOME`, `$(whoami)` and runs nothing. An unbalanced quote or a dangling
-backslash is rejected with a clear error rather than guessed at.
+quote or another backslash).
 
-## Permissions
+Every other character is an ordinary literal, so `;`, `&`, `|`, `>`, `<`, `$`,
+parentheses, and backticks carry no meaning: there is no command separation, no
+variable expansion, and no command substitution. The host spawns `args` as an
+argv array and never through a shell, so `--foo; rm -rf $HOME "$(whoami)"`
+becomes the five literal tokens `--foo;`, `rm`, `-rf`, `$HOME`, `$(whoami)` and
+runs nothing. An unbalanced quote or a dangling backslash is rejected with a
+clear error rather than guessed at.
+
+### Permissions
 
 The host layers the project's permissions model onto the effective config as
 `config.permissions`, above all four configuration layers, and this plugin maps
@@ -106,7 +172,7 @@ the host deliberately leaves it unchecked and it arrives here exactly as the
 user wrote it, absolute and home-rooted paths included; the plugin passes those
 through to `permissions.deny` unchanged.
 
-## Notifications
+### Notifications
 
 The plugin declares `http-hook` notification wiring, carried by the same
 `.claude/settings.local.json` write: `hooks.Notification` is **set** (not
@@ -119,7 +185,7 @@ start so a stale registration can never survive. Unlike the built-in writer,
 which replaces the whole `hooks` object, this write leaves other hook events such
 as `Stop` untouched.
 
-## Version gating
+### Compatibility window
 
 The plugin declares its supported Claude Code CLI window in two places, and they
 are asserted to agree (AP-FR-014). The manifest's `agentCompatibility` block is
@@ -173,32 +239,7 @@ The probe itself is declarative: the host spawns `claude --version`, scans the
 output for the first semver, and caches the result per resolved binary. The
 plugin spawns nothing.
 
-## Example
-
-Agent config is not part of `roubo.yaml`. Application-level defaults live in
-`~/.roubo/agents/_global/claude-code.yaml`:
-
-```yaml
-# ~/.roubo/agents/_global/claude-code.yaml
-schemaVersion: 1
-config:
-  model: opus
-  effort: high
-  mode: plan
-  extraArgs: --fallback-model sonnet --verbose
-```
-
-A project-scoped override is the same envelope at
-`~/.roubo/agents/<projectId>/claude-code.yaml`, and preset and per-launch values
-overlay both. The host merges all four layers before calling `translateLaunch`.
-
-That config launches:
-
-```
-claude --model opus --effort high --permission-mode plan --fallback-model sonnet --verbose --session-id <uuid>
-```
-
-## Lifecycle parity
+### Lifecycle parity
 
 Because the descriptor is executed by the same host launch pipeline the built-in
 Claude Code integration runs through, a session launched by this plugin is
@@ -224,3 +265,13 @@ The candidate list lives in the host and is keyed by the command's base name, no
 carried on the descriptor: a declarative, host-agnostic descriptor should not
 hardcode absolute install paths for the machine it happens to run on. This plugin
 therefore keeps declaring the bare `claude`.
+
+## Links
+
+- [Plugin author guide](https://github.com/davidpoxon/roubo/blob/main/docs/plugin-sdk.md):
+  the agent contract, `defineAgentPlugin`, the launch descriptor, and the
+  `kind: agent` manifest.
+- [`@roubo/plugin-codex`](../codex/README.md): the sibling agent plugin, and the
+  worked example of the same contract carrying a different CLI.
+- [PUBLISHING.md](../../PUBLISHING.md): the catalog format and publish pipeline
+  for running your own marketplace.
