@@ -193,8 +193,7 @@ workspace file at all.
 ### Waiting notifications
 
 Codex's waiting signals split per signal, because its two mechanisms cover
-different events. **Approval waiting rides quiescence**, and it is the mechanism
-that works today. The plugin declares:
+different events. **Approval waiting rides quiescence**. The plugin declares:
 
 ```ts
 waitingDetection: { kind: "quiescence-only", debounceMs: 3000 }
