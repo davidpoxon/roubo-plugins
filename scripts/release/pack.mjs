@@ -56,30 +56,82 @@ export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "database", "github-com", 
 const TOP_LEVEL_ENTRIES = ["package.json", "roubo-plugin.yaml", "README.md"];
 
 /**
+ * Strip one layer of matching single or double quotes from a scalar value.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function unquote(value) {
+  const val = value.trim();
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    return val.slice(1, -1);
+  }
+  return val;
+}
+
+/**
+ * Read the two bounds of the `agentCompatibility` block, the one nested block a
+ * catalog entry needs (davidpoxon/roubo-development#722): the host carries the
+ * declared window on the entry so a not-yet-installed, release-sourced agent
+ * listing can render its floor and tested ceiling before the manifest is
+ * downloadable. Deliberately one level deep and exactly two keys, so this stays a
+ * line reader rather than a YAML parser (CPHM-NFR-006). The block's sibling
+ * `probe:` sub-block, comment lines, and everything after the next column-0 key
+ * are skipped.
+ *
+ * @param {string[]} lines
+ * @returns {{ minVersion?: string, testedCeiling?: string }}
+ */
+function readAgentCompatibility(lines) {
+  /** @type {{ minVersion?: string, testedCeiling?: string }} */
+  const window = {};
+  let inBlock = false;
+  for (const rawLine of lines) {
+    if (/^agentCompatibility:\s*$/.test(rawLine)) {
+      inBlock = true;
+      continue;
+    }
+    if (!inBlock) continue;
+    // A new column-0 key ends the block. Blank lines and comments do not.
+    if (/^[A-Za-z]/.test(rawLine)) break;
+    if (rawLine.trim() === "" || rawLine.trim().startsWith("#")) continue;
+    // Exactly one level of indentation: anything deeper belongs to a sub-block
+    // (`probe:`) this reader has no use for.
+    const m = /^ {2}(minVersion|testedCeiling):\s?(.*)$/.exec(rawLine);
+    if (!m) continue;
+    const val = unquote(m[2]);
+    if (val && !(m[1] in window)) window[/** @type {"minVersion"} */ (m[1])] = val;
+  }
+  return window;
+}
+
+/**
  * Read the small set of catalog-relevant scalars from a plugin's
- * roubo-plugin.yaml. These are all top-level single-line scalar keys in every
- * plugin manifest, so a minimal line reader is sufficient and avoids adding a
- * YAML dependency (CPHM-NFR-006). The version is cross-checked against
- * package.json so the two never silently diverge.
+ * roubo-plugin.yaml. These are almost all top-level single-line scalar keys in
+ * every plugin manifest, so a minimal line reader is sufficient and avoids adding
+ * a YAML dependency (CPHM-NFR-006); the one exception is the `agentCompatibility`
+ * block, read one level deep by `readAgentCompatibility()` above. The version is
+ * cross-checked against package.json so the two never silently diverge.
+ *
+ * `minVersion` / `testedCeiling` are present only for a plugin that declares
+ * them, and only `kind: agent` plugins ever do.
  *
  * @param {string} pluginDir
- * @returns {{ id: string, name: string, version: string, kind: string, summary: string }}
+ * @returns {{ id: string, name: string, version: string, kind: string, summary: string, minVersion?: string, testedCeiling?: string }}
  */
 export function readPluginMeta(pluginDir) {
   const yamlPath = path.join(pluginDir, "roubo-plugin.yaml");
   const yaml = readFileSync(yamlPath, "utf8");
+  const lines = yaml.split("\n");
   /** @type {Record<string, string>} */
   const scalars = {};
-  for (const rawLine of yaml.split("\n")) {
+  for (const rawLine of lines) {
     // Only top-level (column-0) `key: value` scalar lines; stop reading a key's
     // value at the line end. Nested/list lines start with whitespace or `-`.
     const m = /^([A-Za-z][A-Za-z0-9_]*):\s?(.*)$/.exec(rawLine);
     if (!m) continue;
     const key = m[1];
-    let val = m[2].trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
+    const val = unquote(m[2]);
     if (!(key in scalars)) scalars[key] = val;
   }
 
@@ -96,12 +148,16 @@ export function readPluginMeta(pluginDir) {
     );
   }
 
+  const compat = readAgentCompatibility(lines);
+
   return {
     id: scalars.id,
     name: scalars.name,
     version: scalars.version,
     kind: scalars.kind,
     summary: scalars.description ?? "",
+    ...(compat.minVersion !== undefined && { minVersion: compat.minVersion }),
+    ...(compat.testedCeiling !== undefined && { testedCeiling: compat.testedCeiling }),
   };
 }
 
