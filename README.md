@@ -8,8 +8,7 @@ the published `@roubo` SDK packages.
 A Roubo plugin is a directory with a `roubo-plugin.yaml` manifest and a Node
 entry script, discovered by the app under `~/.roubo/plugins/<id>/`. This
 repository is where the first-party plugins are built: an npm workspace holding
-one package per plugin, plus a shared library that carries no manifest of its
-own.
+one package per plugin.
 
 Roubo has three plugin kinds, and the manifest's `kind` field picks one:
 
