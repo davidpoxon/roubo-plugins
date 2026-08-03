@@ -80,10 +80,6 @@ appended to it explicitly or it stays silently unbuilt.
 | [`@roubo/plugin-claude-code`](./plugins/claude-code/README.md) | agent       | `claude-code` | Launches Claude Code sessions with a configured model, effort, and permission mode.        |
 | [`@roubo/plugin-codex`](./plugins/codex/README.md)             | agent       | `codex`       | Launches Codex CLI sessions with a configured model, effort, approval policy, and sandbox. |
 
-`plugins/_shared-github` is a shared library rather than a plugin: it has no
-manifest, is not published to the catalog, and exists so the GitHub integration
-can reuse host-side request handling without re-deriving it.
-
 ## Links
 
 - [Plugin author guide](https://github.com/davidpoxon/roubo/blob/main/docs/plugin-sdk.md):

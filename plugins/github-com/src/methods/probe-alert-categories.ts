@@ -1,8 +1,8 @@
 /**
  * Test Connection per-category probe (WU-041, FR-047) for github.com.
  *
- * Delegates to the shared `_shared-github` helper, which holds the HTTP-status
- * mapping so the github.com and GHE plugins behave identically.
+ * Delegates to the `src/shared/` helper, which holds the HTTP-status mapping
+ * for every alert category in one place.
  */
 
 import type {
@@ -11,7 +11,7 @@ import type {
   ProbeAlertCategoriesParams,
   ProbeAlertCategoriesResult,
 } from "@roubo/plugin-sdk";
-import { probeAlertCategories as runProbe, type FetchTransport } from "@roubo/shared-github";
+import { probeAlertCategories as runProbe, type FetchTransport } from "../shared/index.js";
 import { getHost } from "../host-binding.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";

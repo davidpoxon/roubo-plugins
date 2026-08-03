@@ -1,5 +1,5 @@
 import type { NormalizedIssue } from "@roubo/plugin-sdk";
-import { parseGithubExternalId } from "@roubo/shared-github";
+import { parseGithubExternalId } from "../shared/index.js";
 import { fetchSingleAlertAsIssue } from "../alerts-runtime.js";
 import { formatExternalId } from "../external-id.js";
 import { fetchBlockingRelationships, fetchIssueDetail } from "../github-fetchers.js";

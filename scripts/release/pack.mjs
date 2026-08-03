@@ -46,9 +46,9 @@ export const REPO_ROOT = path.resolve(here, "..", "..");
 export const PLUGINS_DIR = path.join(REPO_ROOT, "plugins");
 
 /**
- * The installable plugins published to the marketplace. `_shared-github` is a
- * build-only internal package (no roubo-plugin.yaml) and is intentionally not
- * publishable.
+ * The installable plugins published to the marketplace. Every workspace under
+ * `plugins/` now carries a roubo-plugin.yaml, so this list is the full set; it
+ * stays explicit rather than globbed so adding a plugin is a deliberate act.
  */
 export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "database", "github-com", "process"];
 

@@ -16,7 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ConfiguredSource } from "@roubo/plugin-sdk";
-import { decodeCompositeCursor } from "@roubo/shared-github";
+import { decodeCompositeCursor } from "../shared/index.js";
 import { listIssues } from "../methods/list-issues.js";
 import { installMocks, okResponse, teardownMocks } from "./helpers.js";
 
