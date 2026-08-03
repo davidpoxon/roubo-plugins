@@ -32,6 +32,7 @@ import {
   integrityOfFile,
   packPlugin,
   pluginDirFor,
+  readPluginMeta,
 } from "../pack.mjs";
 import { buildCatalogPayload } from "../sign-catalog.mjs";
 
@@ -171,6 +172,141 @@ test("buildCatalogPayload emits integrity (artifact digest) distinct from source
   assert.equal(entry.source.sha256, packed.integrity);
   assert.equal(entry.integrity, computeArtifactDigest(pluginDirFor(id)));
   assert.notEqual(entry.integrity, entry.source.sha256);
+});
+
+/**
+ * Write a fixture plugin whose manifest carries a nested `agentCompatibility`
+ * block shaped exactly like the real claude-code / codex manifests: a comment
+ * above it, a comment INSIDE it, a deeper `probe:` sub-block, and a following
+ * column-0 key. That shape is what constrains the line reader, so the fixture
+ * reproduces it rather than a flattened simplification.
+ *
+ * @param {import("node:test").TestContext} t
+ * @returns {string}
+ */
+function makeAgentFixturePlugin(t) {
+  const dir = mkdtempSync(path.join(tmpdir(), "catalog-agent-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(
+    path.join(dir, "package.json"),
+    `${JSON.stringify({ name: "fixture-agent", version: "0.1.0", private: true }, null, 2)}\n`,
+  );
+  writeFileSync(
+    path.join(dir, "roubo-plugin.yaml"),
+    [
+      "id: fixture-agent",
+      "name: Fixture Agent",
+      "version: 0.1.0",
+      "kind: agent",
+      "description: A fixture agent plugin for the declared-window contract",
+      "# The agent-CLI compatibility window.",
+      "agentCompatibility:",
+      "  minVersion: 1.2.3",
+      "  # An in-block comment, exactly as the real manifests carry one.",
+      "  testedCeiling: 4.5.6",
+      "  probe:",
+      "    command: fixture-agent",
+      "    args:",
+      "      - --version",
+      "    parse: semver",
+      "permissions:",
+      "  processes: false",
+      "",
+    ].join("\n"),
+  );
+  return dir;
+}
+
+test("readPluginMeta reads the nested agentCompatibility bounds and nothing else", (t) => {
+  const dir = makeAgentFixturePlugin(t);
+  const meta = readPluginMeta(dir);
+  assert.equal(meta.minVersion, "1.2.3");
+  assert.equal(meta.testedCeiling, "4.5.6");
+  // The `probe` sub-block is a host instruction, not catalog metadata, and the
+  // reader must not have wandered past the block into `permissions:` either.
+  assert.equal(meta.probe, undefined);
+  assert.equal(meta.command, undefined);
+});
+
+test("readPluginMeta leaves a non-agent plugin's meta shape untouched", (t) => {
+  const dir = makeFixturePlugin(t);
+  const meta = readPluginMeta(dir);
+  assert.deepEqual(Object.keys(meta).sort(), ["id", "kind", "name", "summary", "version"]);
+});
+
+test("buildCatalogPayload carries an agent entry's declared window (issue #722)", (t) => {
+  // The host renders this on a not-yet-installed listing, which is the only route
+  // a release-sourced entry has to its bounds before install.
+  const agentId = INSTALLABLE_PLUGIN_IDS.find(
+    (id) => readPluginMeta(pluginDirFor(id)).kind === "agent",
+  );
+  assert.ok(agentId, "expected at least one agent-kind plugin in INSTALLABLE_PLUGIN_IDS");
+  const built = (() => {
+    try {
+      return statSync(path.join(pluginDirFor(agentId), "dist")).isDirectory();
+    } catch {
+      return false;
+    }
+  })();
+  if (!built) {
+    t.skip(`plugins/${agentId}/dist not built; run \`npm run build\` to exercise this test`);
+    return;
+  }
+
+  const buildDir = mkdtempSync(path.join(tmpdir(), "catalog-compat-build-"));
+  t.after(() => rmSync(buildDir, { recursive: true, force: true }));
+  packPlugin({ pluginDir: pluginDirFor(agentId), outDir: buildDir });
+
+  const payload = buildCatalogPayload({
+    buildDir,
+    assetBase: "https://example.invalid/releases/download",
+    keyId: "ed25519-0000000000000000",
+  });
+
+  const meta = readPluginMeta(pluginDirFor(agentId));
+  const entry = payload.entries.find((e) => e.id === agentId);
+  assert.ok(entry, `expected a catalog entry for ${agentId}`);
+  assert.deepEqual(entry.agentCompatibility, {
+    minVersion: meta.minVersion,
+    testedCeiling: meta.testedCeiling,
+  });
+});
+
+test("buildCatalogPayload leaves a non-agent entry's shape unchanged (issue #722)", (t) => {
+  // The key is added only for agent entries, so a component or integration
+  // entry's canonical bytes are what they were before the field existed.
+  const otherId = INSTALLABLE_PLUGIN_IDS.find(
+    (id) => readPluginMeta(pluginDirFor(id)).kind !== "agent",
+  );
+  assert.ok(otherId, "expected at least one non-agent plugin in INSTALLABLE_PLUGIN_IDS");
+  const built = (() => {
+    try {
+      return statSync(path.join(pluginDirFor(otherId), "dist")).isDirectory();
+    } catch {
+      return false;
+    }
+  })();
+  if (!built) {
+    t.skip(`plugins/${otherId}/dist not built; run \`npm run build\` to exercise this test`);
+    return;
+  }
+
+  const buildDir = mkdtempSync(path.join(tmpdir(), "catalog-non-agent-build-"));
+  t.after(() => rmSync(buildDir, { recursive: true, force: true }));
+  packPlugin({ pluginDir: pluginDirFor(otherId), outDir: buildDir });
+
+  const payload = buildCatalogPayload({
+    buildDir,
+    assetBase: "https://example.invalid/releases/download",
+    keyId: "ed25519-0000000000000000",
+  });
+
+  const entry = payload.entries.find((e) => e.id === otherId);
+  assert.ok(entry, `expected a catalog entry for ${otherId}`);
+  assert.ok(
+    !("agentCompatibility" in entry),
+    `entry ${otherId} (${readPluginMeta(pluginDirFor(otherId)).kind}) must not carry agentCompatibility`,
+  );
 });
 
 test("buildCatalogPayload marks every first-party entry verified", (t) => {

@@ -106,6 +106,20 @@ function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set(
       // first-party cards.
       verified: true,
     };
+    // The agent-CLI compatibility window an agent plugin declares in its manifest
+    // (davidpoxon/roubo-development#722). Carried on the entry so a listing can
+    // render the floor and tested ceiling BEFORE anything is installed: a
+    // release-sourced entry has no manifest the host can read until then, and it
+    // is the manifest that wins once the plugin is on disk. Only agent plugins
+    // declare it and only agent listings render it, and, like `revoked` below,
+    // the key is added only when set, so a non-agent entry's canonical bytes are
+    // unchanged.
+    if (meta.kind === "agent" && (meta.minVersion || meta.testedCeiling)) {
+      entry.agentCompatibility = {
+        ...(meta.minVersion !== undefined && { minVersion: meta.minVersion }),
+        ...(meta.testedCeiling !== undefined && { testedCeiling: meta.testedCeiling }),
+      };
+    }
     // A revoked entry is delisted by the client and blocked from install/update
     // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
     // so a non-revoked entry's shape is byte-identical to before.
