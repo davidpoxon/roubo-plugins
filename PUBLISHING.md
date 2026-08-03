@@ -180,6 +180,25 @@ the verify-keyring gate. In place of the signature chain, the per-entry `sha256`
 every third-party listing with a non-dismissible "unverified" badge so the user
 knows the trust level.
 
+### Keep the catalog and the asset in step
+
+Step 4 says "rebuild from the packed tarballs", and the emphasis matters: an
+entry must describe the artifact its `source.assetUrl` actually serves. If your
+catalog is regenerated continuously from your default branch while `assetUrl`
+points at a frozen tag asset, the advertised digest tracks your branch and drifts
+away from the download the moment the branch moves, and every install then fails
+its integrity check against a digest nothing can satisfy.
+
+Two habits keep them in step, and the first-party pipeline uses both:
+
+- Derive each entry from the **published asset**, not from the current tree
+  (`scripts/release/fetch-release-assets.mjs` downloads them;
+  `scripts/release/sign-catalog.mjs --digest-source asset` reads both digests and
+  the display metadata from inside the downloaded tarball).
+- Gate the publish on agreement: `scripts/release/verify-catalog-assets.mjs`
+  re-fetches every entry's `assetUrl` and fails the build, with expected versus
+  actual, when either digest disagrees with the bytes served.
+
 ## 3. Hosting and the Authorization header
 
 **Any URL that serves the catalog format is a valid source**, including

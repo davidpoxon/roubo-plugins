@@ -1,11 +1,17 @@
 name: pages
 
 # Publish the signed marketplace catalog + signed key-ring to GitHub Pages at a
-# stable URL (issue #305). The catalog lists every installable plugin with its
-# per-entry assetUrl + sha256 (over the reproducible Release tarball) and is
-# signed by the operational key; the key-ring is signed by the bootstrap ROOT
-# key and resolves that operational key as 'active'. A key-resolution gate runs
-# before deploy, so a catalog signed by an unknown/revoked key never ships.
+# stable URL (issue #305). The catalog lists every installable plugin that has a
+# published Release, with its per-entry assetUrl + sha256, and is signed by the
+# operational key; the key-ring is signed by the bootstrap ROOT key and resolves
+# that operational key as 'active'. A key-resolution gate runs before deploy, so
+# a catalog signed by an unknown/revoked key never ships.
+#
+# Entries are derived FROM the published Release assets, not from a fresh pack of
+# main (davidpoxon/roubo-development#738): the assetUrl a client follows is a
+# frozen tag asset, so regenerating digests from HEAD made the catalog advertise
+# a digest no download could satisfy. A catalog-versus-asset gate re-fetches each
+# assetUrl before deploy and fails the publish on any disagreement.
 #
 # Out-of-band prerequisites (this workflow only REFERENCES them):
 #   - GitHub Pages is enabled for this repo with "GitHub Actions" as the source.
@@ -53,15 +59,23 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "npm"
 
-      # Pinned toolchain (.nvmrc) + clean install against the committed lockfile:
-      # required for the packed tarball digest to be reproducible.
+      # Pinned toolchain (.nvmrc) + clean install against the committed lockfile.
+      # Nothing is packed or built here any more (the catalog is derived from the
+      # published Release assets), but the release scripts still run under the
+      # pinned runtime.
       - run: npm ci
 
-      - run: npm run build
-
-      # Pack every installable plugin so the published catalog lists the full set
-      # (per-entry assetUrl + sha256 over the reproducible tarball).
-      - run: node scripts/release/pack.mjs --all --out-dir release-build
+      # Download the PUBLISHED Release asset for each installable plugin, rather
+      # than packing a fresh tarball from main. The catalog's `source.assetUrl`
+      # points at a frozen tag asset, so deriving the entry from a fresh pack made
+      # the advertised digest track HEAD and drift away from the artifact a client
+      # actually downloads (davidpoxon/roubo-development#738). A plugin whose
+      # declared version has no published release is skipped with a warning and
+      # simply does not appear in the catalog.
+      - name: Fetch published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/fetch-release-assets.mjs --out-dir release-build
 
       # Derive the public halves of the signing secrets. The private keys stay on
       # the pipe (never written to disk); only the public PEMs are materialized.
@@ -84,7 +98,10 @@ jobs:
           printf '%s' "$MARKETPLACE_ROOT_SIGNING_KEY" | node scripts/release/derive-public-key.mjs > root-pub.pem
 
       # Generate + sign the catalog with the operational key (stdin only), applying
-      # revocation from marketplace/key-ring.config.json.
+      # revocation from marketplace/key-ring.config.json. `--digest-source asset`
+      # derives every entry (both digests AND its display metadata) from inside
+      # the downloaded release tarball, so the catalog describes the artifact it
+      # links to by construction.
       - name: Sign catalog
         env:
           MARKETPLACE_SIGNING_KEY: ${{ secrets.MARKETPLACE_SIGNING_KEY }}
@@ -93,6 +110,7 @@ jobs:
           set -euo pipefail
           printf '%s' "$MARKETPLACE_SIGNING_KEY" | node scripts/release/sign-catalog.mjs \
             --build-dir release-build \
+            --digest-source asset \
             --asset-base "https://github.com/${REPOSITORY}/releases/download" \
             --revoked-config marketplace/key-ring.config.json \
             --out pages-build/catalog.json
@@ -121,6 +139,17 @@ jobs:
             --key-ring pages-build/key-ring.json \
             --root-key root-pub.pem \
             --revoked-config marketplace/key-ring.config.json
+
+      # Publish gate: fetch every entry's source.assetUrl over HTTPS and assert
+      # both its source.sha256 (tarball bytes) and its integrity (unpacked
+      # artifact) against what that URL actually serves. This is what turns
+      # catalog-versus-asset drift into a red build instead of a marketplace
+      # install that fails its integrity check (#738).
+      - name: Catalog-versus-asset gate
+        run: |
+          set -euo pipefail
+          node scripts/release/verify-catalog-assets.mjs \
+            --catalog pages-build/catalog.json
 
       # Only the two signed JSON envelopes go to Pages (the tarballs are Release
       # assets, not Pages content). Served at:
