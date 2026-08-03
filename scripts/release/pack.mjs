@@ -116,8 +116,13 @@ function readAgentCompatibility(lines) {
  * `minVersion` / `testedCeiling` are present only for a plugin that declares
  * them, and only `kind: agent` plugins ever do.
  *
+ * `roubo` is the declared host range (davidpoxon/roubo-development#720). It is a
+ * plain column-0 scalar, so the loop below already captures it; it is returned
+ * only when declared, and deliberately NOT added to the required set, so a
+ * manifest without one packs exactly as it did before.
+ *
  * @param {string} pluginDir
- * @returns {{ id: string, name: string, version: string, kind: string, summary: string, minVersion?: string, testedCeiling?: string }}
+ * @returns {{ id: string, name: string, version: string, kind: string, summary: string, roubo?: string, minVersion?: string, testedCeiling?: string }}
  */
 export function readPluginMeta(pluginDir) {
   const yamlPath = path.join(pluginDir, "roubo-plugin.yaml");
@@ -156,6 +161,7 @@ export function readPluginMeta(pluginDir) {
     version: scalars.version,
     kind: scalars.kind,
     summary: scalars.description ?? "",
+    ...(scalars.roubo && { roubo: scalars.roubo }),
     ...(compat.minVersion !== undefined && { minVersion: compat.minVersion }),
     ...(compat.testedCeiling !== undefined && { testedCeiling: compat.testedCeiling }),
   };

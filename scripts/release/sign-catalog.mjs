@@ -120,6 +120,14 @@ function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set(
         ...(meta.testedCeiling !== undefined && { testedCeiling: meta.testedCeiling }),
       };
     }
+    // The host semver range the plugin's manifest declares
+    // (davidpoxon/roubo-development#720). Carried on the entry so a host outside
+    // it can mark the listing incompatible and refuse the install BEFORE any
+    // artifact is downloaded, instead of discovering it from the manifest after
+    // the package is already staged. Added only when declared, in the same style
+    // as the two keys around it, so an entry without one is byte-identical to
+    // what this build produced before.
+    if (meta.roubo) entry.roubo = meta.roubo;
     // A revoked entry is delisted by the client and blocked from install/update
     // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
     // so a non-revoked entry's shape is byte-identical to before.
