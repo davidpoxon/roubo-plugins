@@ -220,12 +220,45 @@ function makeAgentFixturePlugin(t) {
 test("readPluginMeta reads the nested agentCompatibility bounds and nothing else", (t) => {
   const dir = makeAgentFixturePlugin(t);
   const meta = readPluginMeta(dir);
+  // Both bounds come off the real block, read past an in-block comment. The
+  // `probe:` sub-block is a host instruction rather than catalog metadata, so its
+  // deeper lines must not have been mistaken for a bound: `parse: semver` sits at
+  // four spaces and would match a two-space reader that ignored indentation.
   assert.equal(meta.minVersion, "1.2.3");
   assert.equal(meta.testedCeiling, "4.5.6");
-  // The `probe` sub-block is a host instruction, not catalog metadata, and the
-  // reader must not have wandered past the block into `permissions:` either.
-  assert.equal(meta.probe, undefined);
-  assert.equal(meta.command, undefined);
+});
+
+test("readPluginMeta stops at the key that ends the agentCompatibility block", (t) => {
+  // The block-terminating guard, pinned where it can actually fail. A decoy that
+  // merely repeats a bound the real block already set is inert, because the reader
+  // takes the first value it sees for each key; so the real block here declares
+  // ONLY `minVersion`, and a later column-0 block declares the `testedCeiling` it
+  // left unset. A reader that ran past the terminator would pick 9.9.9 up.
+  const dir = mkdtempSync(path.join(tmpdir(), "catalog-agent-decoy-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(
+    path.join(dir, "package.json"),
+    `${JSON.stringify({ name: "fixture-agent-decoy", version: "0.1.0", private: true }, null, 2)}\n`,
+  );
+  writeFileSync(
+    path.join(dir, "roubo-plugin.yaml"),
+    [
+      "id: fixture-agent-decoy",
+      "name: Fixture Agent Decoy",
+      "version: 0.1.0",
+      "kind: agent",
+      "description: A fixture agent plugin that declares only a floor",
+      "agentCompatibility:",
+      "  minVersion: 1.2.3",
+      "decoyBlock:",
+      "  testedCeiling: 9.9.9",
+      "",
+    ].join("\n"),
+  );
+
+  const meta = readPluginMeta(dir);
+  assert.equal(meta.minVersion, "1.2.3");
+  assert.equal(meta.testedCeiling, undefined);
 });
 
 test("readPluginMeta leaves a non-agent plugin's meta shape untouched", (t) => {

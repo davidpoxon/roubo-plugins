@@ -79,6 +79,15 @@ Each entry (the app's `MarketplaceCatalogEntry`, `shared/types.ts`) carries:
   `<repo>/plugins/<id>@<version>`).
 - `revoked` (optional): set `true` to delist an entry; the client blocks install
   and update for a revoked entry at the next refresh.
+- `agentCompatibility` (optional, `kind: agent` only): the author-declared
+  agent-CLI window, `{ "minVersion": "2.1.111", "testedCeiling": "2.1.207" }`
+  (either bound may be omitted). It is what lets a not-yet-installed listing
+  render its floor and tested ceiling at all, since the app cannot read a
+  release-sourced plugin's manifest until it is installed. Display-only: nothing
+  gates on it, and the plugin's own manifest wins once the plugin is on disk, so
+  the card can never contradict what is installed. The reference pipeline reads
+  it from the `agentCompatibility:` block of the plugin's `roubo-plugin.yaml`, so
+  the manifest stays the single place you declare it.
 
 The first-party catalog additionally wraps these `entries` in
 `{ payload: { schemaVersion, generatedAt, keyId, entries }, signature }`. A
