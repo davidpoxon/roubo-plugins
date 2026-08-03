@@ -1,5 +1,5 @@
 /**
- * WU-036: telemetry instrumentation in alerts-runtime.
+ * IP-WU-036: telemetry instrumentation in alerts-runtime.
  *
  * Architecture addendum (`.specifications/integration-plugins/architecture.md:949–950`)
  * pins the structured shape of these log lines:
@@ -66,7 +66,7 @@ afterEach(() => {
   resetAlertsRuntime();
 });
 
-describe("alerts-runtime telemetry (WU-036)", () => {
+describe("alerts-runtime telemetry (IP-WU-036)", () => {
   it("emits no alert-fetch lines when no category booleans are enabled", async () => {
     queueIssuesPage();
     const sources: ConfiguredSource[] = [{ kind: "repo", externalId: "foo/bar" }];

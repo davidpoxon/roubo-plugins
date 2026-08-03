@@ -1,9 +1,9 @@
 /**
- * TC-098: Performance harness for warm `listIssues` pulls.
+ * IP-TC-098: Performance harness for warm `listIssues` pulls.
  *
  * Spec (`.specifications/integration-plugins/test-cases.json`):
  *   - 5 sources x ~200 items, all three alert categories enabled
- *   - 30 sequential warm pulls; assert p95 < 8000ms (NFR-013)
+ *   - 30 sequential warm pulls; assert p95 < 8000ms (IP-NFR-013)
  *   - Issues-only baseline recorded; alerts-disabled p95 within 10% of baseline
  *
  * Implementation notes:
@@ -12,7 +12,7 @@
  *     The harness exists primarily to verify the measurement infrastructure +
  *     guard against pathological regressions (e.g. accidentally introduced
  *     O(n^2) work on the issue merge path); production p95 evidence comes from
- *     manual real-token runs and the `alert-fetch` log lines from WU-036.
+ *     manual real-token runs and the `alert-fetch` log lines from IP-WU-036.
  *   - Gated on `RUN_PERF_HARNESS=1` so the loop does not bloat the default
  *     coverage run. CI may opt in explicitly when collecting evidence.
  */
@@ -193,7 +193,7 @@ async function measureLoop(alertsEnabled: boolean): Promise<PullMetric[]> {
 }
 
 test.runIf(RUN)(
-  "TC-098: p95 < 8000ms across 30 warm pulls, 5 sources x 200 items, all categories on",
+  "IP-TC-098: p95 < 8000ms across 30 warm pulls, 5 sources x 200 items, all categories on",
   async () => {
     const baseline = await measureLoop(false);
     teardownMocks();
@@ -211,7 +211,7 @@ test.runIf(RUN)(
       JSON.stringify(
         {
           kind: "perf-evidence",
-          tc: "TC-098",
+          tc: "IP-TC-098",
           warmPulls: WARM_PULLS,
           sources: SOURCES.length,
           itemsPerSource: ISSUES_PER_SOURCE + 3 * ALERTS_PER_CATEGORY,
@@ -229,7 +229,7 @@ test.runIf(RUN)(
   120_000,
 );
 
-describe("TC-098 harness (smoke)", () => {
+describe("IP-TC-098 harness (smoke)", () => {
   test.runIf(!RUN)("is skipped unless RUN_PERF_HARNESS=1", () => {
     // Sentinel so the file always contributes one passing assertion under the
     // default coverage run (vitest fails files with zero discovered tests).

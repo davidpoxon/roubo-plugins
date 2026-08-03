@@ -57,7 +57,7 @@ export async function getOctokit(): Promise<OctokitLike> {
 /**
  * Clear the cached Octokit instance and token so the next `getOctokit()`
  * call re-reads from the keyring. Used in production by validateConfig
- * after a token rotation (WU-032 AC #7). Does NOT clear `injectedForTests`
+ * after a token rotation (IP-WU-032 AC #7). Does NOT clear `injectedForTests`
  * (that state belongs to `__setOctokitForTests`); clearing it here would
  * kill any in-flight test mock.
  */

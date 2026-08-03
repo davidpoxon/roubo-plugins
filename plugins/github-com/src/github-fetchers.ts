@@ -1,6 +1,6 @@
 // Ports of the read-only fetchers in server/services/github.ts. Helper bodies,
 // GraphQL queries, cache keys, and pagination caps mirror the legacy module so
-// downstream parity tests (TC-042, TC-043) and behaviour under load match.
+// downstream parity tests (IP-TC-042, IP-TC-043) and behaviour under load match.
 
 import {
   CACHE_TTL,

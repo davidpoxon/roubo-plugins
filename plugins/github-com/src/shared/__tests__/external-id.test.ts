@@ -27,7 +27,7 @@ describe("external-id", () => {
     });
   });
 
-  it("keeps Issue #17 and code-scanning alert #17 on the same repo distinct (TC-090)", () => {
+  it("keeps Issue #17 and code-scanning alert #17 on the same repo distinct (IP-TC-090)", () => {
     const issueId = "wday-planning/roubo#17";
     const alertId = formatAlertExternalId("wday-planning/roubo", "code-scanning", 17);
     expect(issueId).not.toBe(alertId);

@@ -71,7 +71,7 @@ describe("probeAlertCategories", () => {
     expect(transport).not.toHaveBeenCalled();
   });
 
-  it("returns error reports when the repo pre-flight is unreachable (FR-047 safety net)", async () => {
+  it("returns error reports when the repo pre-flight is unreachable (IP-FR-047 safety net)", async () => {
     const transport = makeTransport({ [REPO_URL]: status(404) });
     const reports = await probeAlertCategories({
       baseUrl: BASE,
@@ -183,7 +183,7 @@ describe("probeAlertCategories", () => {
     },
   );
 
-  it("surfaces a per-probe timeout as { status: 'timed-out', detail: 'Timed out' } (FR-047)", async () => {
+  it("surfaces a per-probe timeout as { status: 'timed-out', detail: 'Timed out' } (IP-FR-047)", async () => {
     const transport = makeTransport({
       [REPO_URL]: ok(),
       [DEP_URL]: () =>
@@ -201,7 +201,7 @@ describe("probeAlertCategories", () => {
     expect(reports).toEqual([{ category: "dependabot", status: "timed-out", detail: "Timed out" }]);
   });
 
-  it("isolates one slow probe via Promise.allSettled so others still resolve (TC-103)", async () => {
+  it("isolates one slow probe via Promise.allSettled so others still resolve (IP-TC-103)", async () => {
     const transport = makeTransport({
       [REPO_URL]: ok(),
       [CODE_URL]: () =>

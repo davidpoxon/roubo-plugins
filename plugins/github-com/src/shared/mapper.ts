@@ -5,8 +5,8 @@ import type { RawSecretScanningAlert } from "./alerts/secret-scanning.js";
 import { formatAlertExternalId } from "./external-id.js";
 import { redactCodeScanningAlert, redactSecretScanningAlert } from "./redact.js";
 
-// FR-043: issueType strings the host uses to route security alerts through
-// the alert-only cut-list bucket and to gate UI controls per FR-048.
+// IP-FR-043: issueType strings the host uses to route security alerts through
+// the alert-only cut-list bucket and to gate UI controls per IP-FR-048.
 export const CODE_SCANNING_ISSUE_TYPE = "security-code-scanning";
 export const SECRET_SCANNING_ISSUE_TYPE = "security-secret-scanning";
 export const DEPENDABOT_ISSUE_TYPE = "security-dependabot";
@@ -44,7 +44,7 @@ function commonAlertFields(
   return {
     body: null,
     currentState,
-    // FR-048: alerts are read-only — no host-mediated state changes, no assignment.
+    // IP-FR-048: alerts are read-only — no host-mediated state changes, no assignment.
     // currentState reflects the alert's lifecycle for read/auto-clear purposes only.
     allowedTransitions: [],
     assignees: [],

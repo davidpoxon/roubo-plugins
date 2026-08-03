@@ -1,18 +1,18 @@
 /**
- * TC-107: Scale harness for 100 sequential warm `listIssues` pulls.
+ * IP-TC-107: Scale harness for 100 sequential warm `listIssues` pulls.
  *
  * Spec (`.specifications/integration-plugins/test-cases.json`):
  *   - 5 sources x 3 alert categories, ETag store warm
  *   - 100 back-to-back warm pulls
- *   - 304 short-circuit hit rate for unchanged endpoints >= 90% (FR-041)
- *   - p95 latency < 8000ms (NFR-013)
+ *   - 304 short-circuit hit rate for unchanged endpoints >= 90% (IP-FR-041)
+ *   - p95 latency < 8000ms (IP-NFR-013)
  *
  * Implementation notes:
  *   - The 304 hit rate is measured across the ETag-eligible REST endpoints
  *     reached through `githubRequest` (which sends `If-None-Match` and
  *     short-circuits on Octokit's 304 throw). The alerts endpoints flow
  *     through `paginateAlerts`, which does not yet wire ETag handling. Those
- *     are excluded from the hit-rate calculation. See WU-036 plan notes; ETag
+ *     are excluded from the hit-rate calculation. See IP-WU-036 plan notes; ETag
  *     coverage for alert endpoints is a separate optimization, not a hardening
  *     gate.
  *   - TTL caches are cleared between pulls so the test exercises the request
@@ -218,7 +218,7 @@ async function runPull(): Promise<number> {
 }
 
 test.runIf(RUN)(
-  "TC-107: 100 warm pulls keep 304 hit rate >= 90% and p95 < 8000ms",
+  "IP-TC-107: 100 warm pulls keep 304 hit rate >= 90% and p95 < 8000ms",
   async () => {
     // Warm-up populates the ETag store; the 304 counters are reset afterwards
     // so the hit-rate calculation reflects steady-state warm behaviour.
@@ -240,7 +240,7 @@ test.runIf(RUN)(
       JSON.stringify(
         {
           kind: "perf-evidence",
-          tc: "TC-107",
+          tc: "IP-TC-107",
           scalePulls: SCALE_PULLS,
           sources: SOURCES.length,
           itemsPerSource: ISSUES_PER_SOURCE + 3 * ALERTS_PER_CATEGORY,
@@ -264,7 +264,7 @@ test.runIf(RUN)(
   120_000,
 );
 
-describe("TC-107 harness (smoke)", () => {
+describe("IP-TC-107 harness (smoke)", () => {
   test.runIf(!RUN)("is skipped unless RUN_PERF_HARNESS=1", () => {
     expect(RUN).toBe(false);
   });

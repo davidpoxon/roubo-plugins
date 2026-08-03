@@ -1,6 +1,6 @@
 // External-id format used by the bundled GitHub plugins:
 //   issue:  <owner>/<repo>#<positive-int>            (existing)
-//   alert:  <owner>/<repo>#<category>-<positive-int> (added by WU-029 per FR-044)
+//   alert:  <owner>/<repo>#<category>-<positive-int> (added by IP-WU-029 per IP-FR-044)
 //
 // Both forms share the same `(integrationId, externalId)` keyspace, so the
 // alert form must never collide with an issue number on the same repo. The

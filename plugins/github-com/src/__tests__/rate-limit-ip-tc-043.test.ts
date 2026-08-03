@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { __setSleepForTests, githubRequest } from "../github-request.js";
 import { installMocks, okResponse, teardownMocks } from "./helpers.js";
 
-// TC-043 — GitHub.com plugin honours Retry-After on secondary rate-limit.
+// IP-TC-043 — GitHub.com plugin honours Retry-After on secondary rate-limit.
 //
 // Preconditions:
 //   - The bundled github-com plugin is enabled.
@@ -11,7 +11,7 @@ import { installMocks, okResponse, teardownMocks } from "./helpers.js";
 //   - Plugin waits at least 30 seconds before retrying.
 //   - On budget exceeded, the plugin surfaces a structured rate-limit error.
 
-describe("TC-043: Retry-After backoff", () => {
+describe("IP-TC-043: Retry-After backoff", () => {
   let mocks: ReturnType<typeof installMocks>;
   let sleepCalls: number[];
 

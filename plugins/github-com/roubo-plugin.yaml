@@ -6,7 +6,7 @@ kind: integration
 roubo: ^1.0.0
 entry: ./dist/index.js
 # Privileged tracker-action capabilities the TrackerActionGateway gates on
-# (verify-gate FR-011, NFR-005; spike #704). github-com implements both
+# (verify-gate VG-FR-011, VG-NFR-005; spike #704). github-com implements both
 # createIssue (REST POST /repos/{owner}/{repo}/issues) and addBlockedBy (the
 # issue-dependencies write mutation).
 capabilities:

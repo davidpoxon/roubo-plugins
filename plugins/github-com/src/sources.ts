@@ -1,7 +1,7 @@
 import type { ConfiguredSource } from "@roubo/plugin-sdk";
 
-// Optional per-source alert-category opt-ins (FR-074). Absent ⇒ false at the
-// host layer. As of WU-030 the plugin SDK's `ConfiguredSource` carries these
+// Optional per-source alert-category opt-ins (IP-FR-074). Absent ⇒ false at the
+// host layer. As of IP-WU-030 the plugin SDK's `ConfiguredSource` carries these
 // fields as optional booleans, so they ride into source-bound RPCs verbatim.
 export interface GithubSourceAlertFlags {
   includeCodeQLAlerts?: boolean;

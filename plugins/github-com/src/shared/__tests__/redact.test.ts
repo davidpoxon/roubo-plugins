@@ -20,7 +20,7 @@ const secretScanningPage1 = loadFixture<RawSecretScanningAlert[]>("secret-scanni
 const SECRET_LITERAL = "ghp_AAAA1111BBBB2222CCCC3333";
 const CODE_SNIPPET = "const q = `SELECT * FROM users WHERE id = ${userId}`;";
 
-describe("redactSecretScanningAlert (TC-088)", () => {
+describe("redactSecretScanningAlert (IP-TC-088)", () => {
   it("retains first 4 chars + marker and removes the literal secret", () => {
     const [raw] = secretScanningPage1;
     expect(raw.secret).toBe(SECRET_LITERAL);
@@ -60,7 +60,7 @@ describe("redactSecretScanningAlert (TC-088)", () => {
   });
 });
 
-describe("redactCodeScanningAlert (TC-089)", () => {
+describe("redactCodeScanningAlert (IP-TC-089)", () => {
   it("strips snippet from most_recent_instance.location and keeps path + line", () => {
     const [raw] = codeScanningPage1;
     expect(raw.most_recent_instance?.location?.snippet).toBe(CODE_SNIPPET);
