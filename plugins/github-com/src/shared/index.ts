@@ -51,7 +51,9 @@ export {
 } from "./mapper.js";
 export {
   formatAlertExternalId,
+  formatIssueExternalId,
   parseGithubExternalId,
+  parseGithubIssueExternalId,
   ALERT_CATEGORIES,
   type AlertCategory,
   type ParsedGithubExternalId,

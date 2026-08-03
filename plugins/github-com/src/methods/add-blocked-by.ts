@@ -1,4 +1,4 @@
-import { parseExternalId } from "../external-id.js";
+import { parseGithubIssueExternalId } from "../shared/index.js";
 import { githubRequest, parseRepo } from "../github-request.js";
 
 // Response of the node-id resolution query: one issue node id per aliased issue.
@@ -47,8 +47,8 @@ export async function addBlockedBy(params: {
   blockedRef: string;
   blockerRef: string;
 }): Promise<void> {
-  const blocked = parseExternalId(params.blockedRef);
-  const blocker = parseExternalId(params.blockerRef);
+  const blocked = parseGithubIssueExternalId(params.blockedRef);
+  const blocker = parseGithubIssueExternalId(params.blockerRef);
   const blockedRepo = parseRepo(blocked.repoFullName);
   const blockerRepo = parseRepo(blocker.repoFullName);
 

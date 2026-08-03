@@ -1,5 +1,5 @@
 import type { CreateIssueResult } from "@roubo/plugin-sdk";
-import { formatExternalId } from "../external-id.js";
+import { formatIssueExternalId } from "../shared/index.js";
 import { githubRequest, parseRepo } from "../github-request.js";
 
 // The slice of GitHub's `POST /repos/{owner}/{repo}/issues` response the gateway
@@ -46,7 +46,7 @@ export async function createIssue(params: {
   });
   const issue = result.data;
   return {
-    ref: formatExternalId(params.repoFullName, issue.number),
+    ref: formatIssueExternalId(params.repoFullName, issue.number),
     url: issue.html_url,
     nodeId: issue.node_id,
   };

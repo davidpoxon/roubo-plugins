@@ -1,4 +1,4 @@
-import { parseExternalId } from "../external-id.js";
+import { parseGithubIssueExternalId } from "../shared/index.js";
 import { githubRequest, parseRepo } from "../github-request.js";
 
 const TRANSITION_TO_STATE: Record<string, "closed" | "open"> = {
@@ -16,7 +16,7 @@ export async function applyTransition(params: {
       `[github-com] Unknown transition "${params.transition}". Expected "close" or "reopen".`,
     );
   }
-  const { repoFullName, issueNumber } = parseExternalId(params.externalId);
+  const { repoFullName, issueNumber } = parseGithubIssueExternalId(params.externalId);
   const { owner, repo } = parseRepo(repoFullName);
   await githubRequest({
     kind: "rest",

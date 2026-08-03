@@ -22,6 +22,10 @@ export function formatAlertExternalId(
   return `${repoFullName}#${category}-${alertNumber}`;
 }
 
+export function formatIssueExternalId(repoFullName: string, issueNumber: number): string {
+  return `${repoFullName}#${issueNumber}`;
+}
+
 const ALERT_RIGHT_RE = /^(code-scanning|secret-scanning|dependabot)-(\d+)$/;
 
 export function parseGithubExternalId(externalId: string): ParsedGithubExternalId {
@@ -56,4 +60,21 @@ export function parseGithubExternalId(externalId: string): ParsedGithubExternalI
     );
   }
   return { kind: "issue", repoFullName, issueNumber };
+}
+
+// Narrowing wrapper for the issue-only call sites (assignIssue, getComments,
+// applyTransition, and friends). The alert form parses cleanly but carries an
+// alert number, so it must be rejected explicitly rather than allowed to flow
+// into a code path that expects an issue number.
+export function parseGithubIssueExternalId(externalId: string): {
+  repoFullName: string;
+  issueNumber: number;
+} {
+  const parsed = parseGithubExternalId(externalId);
+  if (parsed.kind === "alert") {
+    throw new Error(
+      `[shared-github] externalId "${externalId}" refers to a ${parsed.category} alert, but an issue number was expected.`,
+    );
+  }
+  return { repoFullName: parsed.repoFullName, issueNumber: parsed.issueNumber };
 }
