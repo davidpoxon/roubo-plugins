@@ -33,6 +33,20 @@ on:
       - "marketplace/**"
       - "scripts/release/**"
       - ".github/workflows/pages.yml"
+  # Regenerate AFTER a release, not only on the `main` push that preceded it.
+  # Now that entries are derived from the published asset, a version bump alone
+  # is not enough: the bump lands on main first (firing the push trigger while
+  # the tag, and therefore the asset, does not yet exist), so the freshly bumped
+  # plugin would be skipped by fetch-release-assets.mjs and drop out of the
+  # catalog until some unrelated push happened along. No `branches:` filter here
+  # on purpose: release.yml is triggered by a TAG push, so the completed run has
+  # no `main` head branch for such a filter to match. (`release: published` is
+  # not usable either: release.yml creates the release with `github.token`, and
+  # events raised by that token do not trigger further workflow runs.)
+  workflow_run:
+    workflows: ["release"]
+    types:
+      - completed
 
 # Only the Pages deploy needs write; reading the repo is enough otherwise.
 permissions:
@@ -47,6 +61,8 @@ concurrency:
 
 jobs:
   publish:
+    # A failed release uploaded no asset, so there is nothing new to describe.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

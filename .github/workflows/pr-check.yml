@@ -83,6 +83,13 @@ jobs:
           node-version: "24"
           cache: "npm"
       - run: npm ci
+
+      # Five cases in catalog-integrity.test.mjs assert against a real packed
+      # plugin and t.skip() themselves when `plugins/*/dist` is absent, so
+      # without a build first they would pass vacuously and leave the
+      # `--digest-source source` path release.yml uses ungated.
+      - run: npm run build
+
       - run: npm test
 
   build:
