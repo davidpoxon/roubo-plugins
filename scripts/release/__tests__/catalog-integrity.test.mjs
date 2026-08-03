@@ -198,6 +198,7 @@ function makeAgentFixturePlugin(t) {
       "name: Fixture Agent",
       "version: 0.1.0",
       "kind: agent",
+      "roubo: ^1.4.0",
       "description: A fixture agent plugin for the declared-window contract",
       "# The agent-CLI compatibility window.",
       "agentCompatibility:",
@@ -340,6 +341,62 @@ test("buildCatalogPayload leaves a non-agent entry's shape unchanged (issue #722
     !("agentCompatibility" in entry),
     `entry ${otherId} (${readPluginMeta(pluginDirFor(otherId)).kind}) must not carry agentCompatibility`,
   );
+});
+
+test("readPluginMeta returns the declared roubo range (issue #720)", (t) => {
+  // The range is a plain column-0 scalar, so the existing scalar loop already
+  // sees it; this pins that it actually reaches the returned meta, which is what
+  // the catalog entry is assembled from.
+  const dir = makeAgentFixturePlugin(t);
+  assert.equal(readPluginMeta(dir).roubo, "^1.4.0");
+});
+
+test("readPluginMeta omits roubo entirely when the manifest declares none", (t) => {
+  // Not added to the required set: a manifest without the key packs exactly as
+  // it did before, so the catalog entry carries no `roubo` and its canonical
+  // bytes are unchanged.
+  const dir = makeFixturePlugin(t);
+  const meta = readPluginMeta(dir);
+  assert.ok(!("roubo" in meta));
+  assert.deepEqual(Object.keys(meta).sort(), ["id", "kind", "name", "summary", "version"]);
+});
+
+test("buildCatalogPayload emits the declared roubo range for every entry it packs (issue #720)", (t) => {
+  // AC2: the first-party build carries the range, which is what lets a host
+  // outside it mark the listing incompatible before anything is downloaded.
+  const built = INSTALLABLE_PLUGIN_IDS.every((id) => {
+    try {
+      return statSync(path.join(pluginDirFor(id), "dist")).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+  if (!built) {
+    t.skip("plugin dist/ not built; run `npm run build` to exercise this test");
+    return;
+  }
+
+  const buildDir = mkdtempSync(path.join(tmpdir(), "catalog-roubo-build-"));
+  t.after(() => rmSync(buildDir, { recursive: true, force: true }));
+  for (const id of INSTALLABLE_PLUGIN_IDS) {
+    packPlugin({ pluginDir: pluginDirFor(id), outDir: buildDir });
+  }
+
+  const payload = buildCatalogPayload({
+    buildDir,
+    assetBase: "https://example.invalid/releases/download",
+    keyId: "ed25519-0000000000000000",
+  });
+
+  assert.ok(payload.entries.length >= 1, "expected at least one catalog entry");
+  for (const entry of payload.entries) {
+    assert.equal(
+      entry.roubo,
+      readPluginMeta(pluginDirFor(entry.id)).roubo,
+      `entry ${entry.id} must carry its manifest's declared roubo range`,
+    );
+    assert.ok(entry.roubo, `entry ${entry.id} must declare a roubo range`);
+  }
 });
 
 test("buildCatalogPayload marks every first-party entry verified", (t) => {
