@@ -1,7 +1,6 @@
 import type { NormalizedIssue } from "@roubo/plugin-sdk";
-import { parseGithubExternalId } from "../shared/index.js";
+import { formatIssueExternalId, parseGithubExternalId } from "../shared/index.js";
 import { fetchSingleAlertAsIssue } from "../alerts-runtime.js";
-import { formatExternalId } from "../external-id.js";
 import { fetchBlockingRelationships, fetchIssueDetail } from "../github-fetchers.js";
 import { rawToNormalizedIssue } from "../normalize.js";
 
@@ -20,12 +19,12 @@ export async function getIssue(params: { externalId: string }): Promise<Normaliz
 
   const issue = rawToNormalizedIssue(raw, {
     blockedBy: (blocking.blockedBy[issueNumber] ?? []).map((b) =>
-      formatExternalId(repoFullName, b.number),
+      formatIssueExternalId(repoFullName, b.number),
     ),
     blocks: (blocking.blocks[issueNumber] ?? []).map((b) =>
-      formatExternalId(repoFullName, b.number),
+      formatIssueExternalId(repoFullName, b.number),
     ),
   });
-  issue.externalId = formatExternalId(repoFullName, issueNumber);
+  issue.externalId = formatIssueExternalId(repoFullName, issueNumber);
   return issue;
 }

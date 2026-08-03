@@ -1,4 +1,4 @@
-import { parseExternalId } from "../external-id.js";
+import { parseGithubIssueExternalId } from "../shared/index.js";
 import { fetchIssueDetail } from "../github-fetchers.js";
 import { githubRequest, parseRepo } from "../github-request.js";
 
@@ -12,7 +12,7 @@ export async function unassignIssue(params: {
   externalId: string;
   assigneeExternalId: string;
 }): Promise<void> {
-  const { repoFullName, issueNumber } = parseExternalId(params.externalId);
+  const { repoFullName, issueNumber } = parseGithubIssueExternalId(params.externalId);
   const { owner, repo } = parseRepo(repoFullName);
   const raw = await fetchIssueDetail(repoFullName, issueNumber);
   const existing = currentAssignees(raw);

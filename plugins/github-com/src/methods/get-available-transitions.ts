@@ -1,4 +1,4 @@
-import { parseExternalId } from "../external-id.js";
+import { parseGithubIssueExternalId } from "../shared/index.js";
 import { fetchIssueDetail } from "../github-fetchers.js";
 
 /**
@@ -9,7 +9,7 @@ import { fetchIssueDetail } from "../github-fetchers.js";
  * surfaces them as a small string vocabulary the host can render.
  */
 export async function getAvailableTransitions(params: { externalId: string }): Promise<string[]> {
-  const { repoFullName, issueNumber } = parseExternalId(params.externalId);
+  const { repoFullName, issueNumber } = parseGithubIssueExternalId(params.externalId);
   const raw = await fetchIssueDetail(repoFullName, issueNumber);
   const state = (raw.state ?? "open").toLowerCase();
   return state === "open" ? ["close"] : ["reopen"];

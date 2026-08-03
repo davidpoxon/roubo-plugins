@@ -5,7 +5,7 @@ import type {
   NormalizedIssue,
 } from "@roubo/plugin-sdk";
 import { parseAllSources, type GithubSource } from "../sources.js";
-import { formatExternalId } from "../external-id.js";
+import { formatIssueExternalId } from "../shared/index.js";
 import {
   fetchBlockingRelationships,
   fetchIssuesPage,
@@ -117,10 +117,10 @@ async function listFromRepo(
   const items: NormalizedIssue[] = result.items.map((raw) =>
     rawToNormalizedIssue(raw, {
       blockedBy: (blocking.blockedBy[raw.number] ?? []).map((b) =>
-        formatExternalId(repoFullName, b.number),
+        formatIssueExternalId(repoFullName, b.number),
       ),
       blocks: (blocking.blocks[raw.number] ?? []).map((b) =>
-        formatExternalId(repoFullName, b.number),
+        formatIssueExternalId(repoFullName, b.number),
       ),
     }),
   );
@@ -128,7 +128,7 @@ async function listFromRepo(
   // Override externalId to fully-qualified form so cross-method calls (getIssue,
   // getComments) can recover the repo context from the ID alone.
   for (const item of items) {
-    item.externalId = formatExternalId(repoFullName, Number(item.externalId));
+    item.externalId = formatIssueExternalId(repoFullName, Number(item.externalId));
   }
 
   const result_: ListIssuesResult = {
@@ -248,12 +248,14 @@ async function listFromProject(
     const blockedBy =
       issueNumber != null && blocking
         ? (blocking.blockedBy[issueNumber] ?? []).map((b) =>
-            formatExternalId(repoFullName, b.number),
+            formatIssueExternalId(repoFullName, b.number),
           )
         : [];
     const blocks =
       issueNumber != null && blocking
-        ? (blocking.blocks[issueNumber] ?? []).map((b) => formatExternalId(repoFullName, b.number))
+        ? (blocking.blocks[issueNumber] ?? []).map((b) =>
+            formatIssueExternalId(repoFullName, b.number),
+          )
         : [];
 
     const normalized = projectNodeToNormalizedIssue(node, `${owner}/unknown`, {
@@ -261,7 +263,7 @@ async function listFromProject(
       blocks,
     });
     if (!normalized) continue;
-    normalized.externalId = formatExternalId(repoFullName, Number(normalized.externalId));
+    normalized.externalId = formatIssueExternalId(repoFullName, Number(normalized.externalId));
     items.push(normalized);
   }
 

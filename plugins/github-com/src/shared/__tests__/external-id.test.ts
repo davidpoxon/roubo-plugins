@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ALERT_CATEGORIES, formatAlertExternalId, parseGithubExternalId } from "../external-id.js";
+import {
+  ALERT_CATEGORIES,
+  formatAlertExternalId,
+  formatIssueExternalId,
+  parseGithubExternalId,
+  parseGithubIssueExternalId,
+} from "../external-id.js";
 
 describe("external-id", () => {
   it.each(ALERT_CATEGORIES)("formats and round-trips %s alerts", (category) => {
@@ -58,5 +64,25 @@ describe("external-id", () => {
 
   it("rejects alert ids with non-positive numbers", () => {
     expect(() => parseGithubExternalId("foo/bar#code-scanning-0")).toThrow(/positive integer/);
+  });
+
+  it("round-trips the issue form through the issue formatter", () => {
+    expect(formatIssueExternalId("foo/bar", 42)).toBe("foo/bar#42");
+    expect(parseGithubIssueExternalId(formatIssueExternalId("foo/bar", 42))).toEqual({
+      repoFullName: "foo/bar",
+      issueNumber: 42,
+    });
+  });
+
+  it("rejects the alert form where an issue number is expected", () => {
+    expect(() => parseGithubIssueExternalId("foo/bar#code-scanning-5")).toThrow(
+      /externalId .* alert, but an issue number was expected/,
+    );
+  });
+
+  it("propagates the parser's rejections through the issue-only wrapper", () => {
+    expect(() => parseGithubIssueExternalId("foo/bar/42")).toThrow(/missing "#/);
+    expect(() => parseGithubIssueExternalId("bar#42")).toThrow(/missing "owner\/repo"/);
+    expect(() => parseGithubIssueExternalId("foo/bar#0")).toThrow(/positive-int/);
   });
 });
