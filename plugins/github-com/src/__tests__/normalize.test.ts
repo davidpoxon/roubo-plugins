@@ -65,7 +65,7 @@ describe("normalize", () => {
       expect(issue.blocks).toEqual(["foo/bar#9"]);
     });
 
-    it("populates facetValues.milestone when the issue has a milestone (TC-127)", () => {
+    it("populates facetValues.milestone when the issue has a milestone (IP-TC-127)", () => {
       const raw: RawIssue = {
         number: 7,
         title: "with milestone",
@@ -78,7 +78,7 @@ describe("normalize", () => {
       expect(rawToNormalizedIssue(raw).facetValues).toEqual({ milestone: "v1.2" });
     });
 
-    it("omits facetValues entirely when no milestone is set (TC-127)", () => {
+    it("omits facetValues entirely when no milestone is set (IP-TC-127)", () => {
       const raw: RawIssue = {
         number: 8,
         title: "no milestone",
@@ -197,7 +197,7 @@ describe("normalize", () => {
       expect(result.blocks).toEqual(["foo/bar#9"]);
     });
 
-    it("populates facetValues.milestone for project items with a milestone (TC-127)", () => {
+    it("populates facetValues.milestone for project items with a milestone (IP-TC-127)", () => {
       const node: ProjectV2Data["items"]["nodes"][number] = {
         content: {
           __typename: "Issue",

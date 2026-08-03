@@ -10,7 +10,7 @@ import {
 /**
  * Subset of the GitHub Secret Scanning alert REST payload. The `secret` field
  * holds the literal token surfaced by the scanner; the redaction helpers strip
- * it before the alert is ever placed in `NormalizedIssue.raw` (FR-043, NFR-012).
+ * it before the alert is ever placed in `NormalizedIssue.raw` (IP-FR-043, IP-NFR-012).
  *
  * Ref: https://docs.github.com/en/rest/secret-scanning/secret-scanning#list-secret-scanning-alerts-for-a-repository
  */
@@ -48,7 +48,7 @@ export async function fetchSecretScanningAlerts(
 /**
  * Fetches a single Secret Scanning alert by number. The literal secret is
  * stripped by the mapper's redaction before the alert reaches any host-visible
- * surface (FR-043, NFR-012); this fetcher returns the raw API payload, so its
+ * surface (IP-FR-043, IP-NFR-012); this fetcher returns the raw API payload, so its
  * result must always be passed through `mapSecretScanningAlertToNormalizedIssue`.
  */
 export async function fetchSecretScanningAlert(

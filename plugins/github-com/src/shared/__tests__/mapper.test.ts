@@ -23,7 +23,7 @@ const SECRET_LITERAL = "ghp_AAAA1111BBBB2222CCCC3333";
 const CODE_SNIPPET = "const q = `SELECT * FROM users WHERE id = ${userId}`;";
 
 describe("mapCodeScanningAlertToNormalizedIssue", () => {
-  it("produces the documented issueType, external-id, and empty transitions/assignees (FR-048)", () => {
+  it("produces the documented issueType, external-id, and empty transitions/assignees (IP-FR-048)", () => {
     const [raw] = loadFixture<RawCodeScanningAlert[]>("code-scanning-page1.json");
     const out = mapCodeScanningAlertToNormalizedIssue("github-com", "wday-planning/roubo", raw);
     expect(out.integrationId).toBe("github-com");
@@ -56,7 +56,7 @@ describe("mapCodeScanningAlertToNormalizedIssue", () => {
 });
 
 describe("mapSecretScanningAlertToNormalizedIssue", () => {
-  it("produces the documented issueType, external-id, and empty transitions/assignees (FR-048)", () => {
+  it("produces the documented issueType, external-id, and empty transitions/assignees (IP-FR-048)", () => {
     const [raw] = loadFixture<RawSecretScanningAlert[]>("secret-scanning-page1.json");
     const out = mapSecretScanningAlertToNormalizedIssue("ghe", "wday-planning/roubo", raw);
     expect(out.integrationId).toBe("ghe");
@@ -75,7 +75,7 @@ describe("mapSecretScanningAlertToNormalizedIssue", () => {
 });
 
 describe("mapDependabotAlertToNormalizedIssue", () => {
-  it("produces the documented issueType, external-id, and empty transitions/assignees (FR-048)", () => {
+  it("produces the documented issueType, external-id, and empty transitions/assignees (IP-FR-048)", () => {
     const [raw] = loadFixture<RawDependabotAlert[]>("dependabot-page1.json");
     const out = mapDependabotAlertToNormalizedIssue("github-com", "wday-planning/roubo", raw);
     expect(out.issueType).toBe(DEPENDABOT_ISSUE_TYPE);

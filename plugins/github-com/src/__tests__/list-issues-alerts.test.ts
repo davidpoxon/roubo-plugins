@@ -1,5 +1,5 @@
 /**
- * WU-030: listIssues alert-merge behaviour.
+ * IP-WU-030: listIssues alert-merge behaviour.
  *
  * Covers:
  * - All booleans off → no alert fetches dispatched
@@ -52,7 +52,7 @@ function queueIssuesPage(items: unknown[] = []) {
   mocks.mockOctokit.graphql.mockResolvedValueOnce({ repository: {} });
 }
 
-describe("listIssues + alerts (WU-030)", () => {
+describe("listIssues + alerts (IP-WU-030)", () => {
   it("does not dispatch alert fetches when no booleans are enabled", async () => {
     queueIssuesPage();
     const sources: ConfiguredSource[] = [{ kind: "repo", externalId: "foo/bar" }];
@@ -108,7 +108,7 @@ describe("listIssues + alerts (WU-030)", () => {
     ]);
   });
 
-  it("flags missing security_events scope via detail.missingScope on 401 (WU-039)", async () => {
+  it("flags missing security_events scope via detail.missingScope on 401 (IP-WU-039)", async () => {
     queueIssuesPage();
     queueHostResponses({
       [CODE_URL]: { status: 401, headers: {}, body: "" },

@@ -1,5 +1,5 @@
 /**
- * Test Connection per-category probe (WU-041, FR-047) for github.com.
+ * Test Connection per-category probe (IP-WU-041, IP-FR-047) for github.com.
  *
  * Delegates to the `src/shared/` helper, which holds the HTTP-status mapping
  * for every alert category in one place.

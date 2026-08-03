@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { githubRequest } from "../github-request.js";
 import { installMocks, okResponse, teardownMocks } from "./helpers.js";
 
-// TC-042 — GitHub.com plugin preserves ETag short-circuiting.
+// IP-TC-042 — GitHub.com plugin preserves ETag short-circuiting.
 //
 // Preconditions:
 //   - The bundled github-com plugin is enabled.
@@ -11,7 +11,7 @@ import { installMocks, okResponse, teardownMocks } from "./helpers.js";
 //   - Plugin sends If-None-Match with the stored ETag on the next request.
 //   - On 304 the plugin returns the cached payload.
 
-describe("TC-042: ETag short-circuit", () => {
+describe("IP-TC-042: ETag short-circuit", () => {
   let mocks: ReturnType<typeof installMocks>;
 
   beforeEach(() => {

@@ -3,7 +3,7 @@ import { parseSourcesConfig } from "../parse-sources.js";
 
 // Canonical input/output for the host's source-config contract: this parsed
 // shape is what the host relies on when consuming an integration plugin's
-// source-config payload (WU-037 acceptance criterion 3).
+// source-config payload (IP-WU-037 acceptance criterion 3).
 const CANONICAL_ALERTS_INPUT = {
   sources: [
     {
@@ -28,7 +28,7 @@ const CANONICAL_ALERTS_PARSED = {
   ],
 };
 
-describe("github-com parseSourcesConfig: per-source alert booleans (FR-074)", () => {
+describe("github-com parseSourcesConfig: per-source alert booleans (IP-FR-074)", () => {
   it("parses a source with all three alert booleans set into the canonical shape", () => {
     const { config, errors } = parseSourcesConfig(CANONICAL_ALERTS_INPUT);
     expect(errors).toEqual([]);

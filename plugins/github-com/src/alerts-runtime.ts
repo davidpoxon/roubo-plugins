@@ -31,13 +31,13 @@ import { INTEGRATION_ID } from "./normalize.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
-// WU-036: per-category alert fetches share the upstream default page size.
+// IP-WU-036: per-category alert fetches share the upstream default page size.
 // Surfaced in the `alert-fetch` log line so a histogram of duration-per-item
 // can be computed by log scraping (architecture addendum line 949).
 const ALERT_PER_PAGE = 50;
 
 /**
- * NFR-015 graceful copy for fine-grained PATs / GitHub App installation
+ * IP-NFR-015 graceful copy for fine-grained PATs / GitHub App installation
  * tokens that do not emit the `X-OAuth-Scopes` response header. The
  * client renders this verbatim as the chip tooltip. Do not edit casually.
  */
@@ -82,7 +82,7 @@ async function getTransport(): Promise<FetchTransport> {
 /**
  * One-shot probe of `/user` to detect whether the current token emits
  * `X-OAuth-Scopes`. Cached per process; cleared by `resetAlertsRuntime()`.
- * Returns `"unknown"` for fine-grained PATs / GitHub App tokens (NFR-015)
+ * Returns `"unknown"` for fine-grained PATs / GitHub App tokens (IP-NFR-015)
  * so callers can rewrite a `missing-scope` warning to `scope-unverifiable`.
  */
 async function probeTokenShape(transport: FetchTransport): Promise<"known" | "unknown"> {
@@ -102,7 +102,7 @@ export function resetAlertsRuntime(): void {
 }
 
 /**
- * WU-036: per-category fetch timer + observability hook.
+ * IP-WU-036: per-category fetch timer + observability hook.
  *
  * Wraps `safeFetchAlerts` so each category dispatch emits exactly one
  * `alert-fetch` info log line with duration and item count. Architecture
@@ -155,7 +155,7 @@ function parseOwnerRepo(repoFullName: string): { owner: string; repo: string } |
  * NormalizedIssue. Backs the plugin's `getIssue` for alert externalIds so the
  * host (bench assignment, alert-backed BenchDetail) only ever receives the
  * mapper's redacted clone; the literal secret never leaves the plugin
- * (FR-043, NFR-012). Fetch failures surface as `AlertPaginationError`
+ * (IP-FR-043, IP-NFR-012). Fetch failures surface as `AlertPaginationError`
  * (status-bearing: 403 missing scope, 404 deleted alert).
  */
 export async function fetchSingleAlertAsIssue(
@@ -194,7 +194,7 @@ export async function fetchSingleAlertAsIssue(
  *
  * `sourceExternalId` is the configured source id (e.g. `owner/repo` or
  * `owner/#42`) and is included verbatim in any `warning-emitted` log line
- * for this dispatch. WU-036 (architecture addendum line 950).
+ * for this dispatch. IP-WU-036 (architecture addendum line 950).
  */
 export async function fetchRepoAlerts(
   repoFullName: string,
@@ -253,7 +253,7 @@ export async function fetchRepoAlerts(
       code,
       ...(Object.keys(detail).length > 0 ? { detail } : {}),
     });
-    // WU-036: architecture addendum line 950. `cause` is intentionally NOT
+    // IP-WU-036: architecture addendum line 950. `cause` is intentionally NOT
     // emitted here (it is a UI rendering string and may carry repo-derived
     // text). `sourceExternalId` is the stable id the user configured.
     getHost().logger.warn({
@@ -290,7 +290,7 @@ export async function fetchRepoAlerts(
     }
   }
 
-  // NFR-015: if any category came back as `missing-scope` (HTTP 401), probe
+  // IP-NFR-015: if any category came back as `missing-scope` (HTTP 401), probe
   // the token shape once. Fine-grained PATs and GitHub App tokens do not emit
   // `X-OAuth-Scopes`, so we cannot honestly say `security_events` is missing;
   // rewrite the warning to a graceful "verify scopes" variant instead.

@@ -31,7 +31,7 @@ function buildResolveQuery(): string {
 }
 
 /**
- * Register an "is blocked by" relationship on GitHub (verify-gate FR-010/FR-011,
+ * Register an "is blocked by" relationship on GitHub (verify-gate VG-FR-010/VG-FR-011,
  * spike #704): `blockedRef` becomes blocked by `blockerRef`. Resolves both
  * issues' GraphQL node ids, then issues the issue-dependencies write mutation,
  * the WRITE neighbour of the `blockedBy`/`blocking` READ already shipping in

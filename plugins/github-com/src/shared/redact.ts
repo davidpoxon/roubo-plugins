@@ -1,7 +1,7 @@
 import type { CodeScanningLocation, RawCodeScanningAlert } from "./alerts/code-scanning.js";
 import type { RawSecretScanningAlert } from "./alerts/secret-scanning.js";
 
-// Per FR-043 / NFR-012: Roubo never sees the leaked secret itself. We retain
+// Per IP-FR-043 / IP-NFR-012: Roubo never sees the leaked secret itself. We retain
 // only enough of the literal to help a human recognise the alert in the UI
 // (the first 4 characters of a token preserve the recognisable prefix like
 // `ghp_`, `sk_l`, `xoxb`, etc.) and append a fixed marker so callers can

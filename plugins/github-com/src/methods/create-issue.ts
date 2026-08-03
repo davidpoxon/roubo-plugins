@@ -12,7 +12,7 @@ interface CreateIssueResponse {
 }
 
 /**
- * Create a GitHub issue (verify-gate FR-011, spike #704). Uses the REST
+ * Create a GitHub issue (verify-gate VG-FR-011, spike #704). Uses the REST
  * `POST /repos/{owner}/{repo}/issues` endpoint, which avoids the node-id
  * round-trip the GraphQL `createIssue` mutation needs while still returning the
  * created issue's `node_id` (used to wire blocking links without a second

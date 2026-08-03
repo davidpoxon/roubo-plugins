@@ -37,9 +37,9 @@ function parseAlertFlags(
  * needs to parse the sources array when validateConfig probes each source
  * for existence. Returns the parsed sources plus field-scoped shape errors.
  *
- * Per-source alert-category booleans (FR-074) are accepted, validated as
+ * Per-source alert-category booleans (IP-FR-074) are accepted, validated as
  * booleans, and surfaced on the parsed source. They are not yet consumed by
- * source-bound RPCs (the plugin SDK boundary is unchanged for WU-037).
+ * source-bound RPCs (the plugin SDK boundary is unchanged for IP-WU-037).
  */
 export function parseSourcesConfig(raw: Record<string, unknown>): {
   config: { sources: GithubSource[] } | null;

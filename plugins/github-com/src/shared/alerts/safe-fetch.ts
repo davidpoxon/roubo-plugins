@@ -2,10 +2,10 @@
  * Non-throwing wrapper around the per-category alert fetchers.
  *
  * The GitHub plugins must surface per-category fetch failures as warnings on
- * the listIssues envelope (FR-046), not as exceptions. This helper turns an
+ * the listIssues envelope (IP-FR-046), not as exceptions. This helper turns an
  * `AlertPaginationError` (status-bearing, thrown by `paginateAlerts`) into a
  * structured `{ ok: false, cause, status }` shape with a category-specific
- * cause string per the HTTP-code mapping table in WU-030.
+ * cause string per the HTTP-code mapping table in IP-WU-030.
  *
  * The cause strings are part of the user-facing contract: AC #5 fixes the
  * 404 / code-scanning string and AC #6 fixes the 451 / secret-scanning

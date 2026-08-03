@@ -1,5 +1,5 @@
 /**
- * Per-category Test Connection probe for the GitHub-family plugins (WU-041).
+ * Per-category Test Connection probe for the GitHub-family plugins (IP-WU-041).
  *
  * Picks a sample repo from the supplied source list (the first `kind: "repo"`
  * source with a parseable `owner/repo` externalId), does a cheap repo-level
@@ -36,7 +36,7 @@ export interface ProbeAlertCategoriesArgs {
   transport: FetchTransport;
   sources: ProbeSource[];
   enabledCategories: ProbeCategory[];
-  /** Per-probe timeout (ms). Default 5000 (FR-047: 5s per-probe cap). */
+  /** Per-probe timeout (ms). Default 5000 (IP-FR-047: 5s per-probe cap). */
   timeoutMsPerProbe?: number;
   /** Forwarded as `allowSelfSignedTls` on each probe (GHE). */
   allowSelfSignedTls?: boolean;
@@ -250,7 +250,7 @@ export async function probeAlertCategories(args: ProbeAlertCategoriesArgs): Prom
     );
   }
 
-  // FR-047: fan out per-category probes with `Promise.allSettled` so a single
+  // IP-FR-047: fan out per-category probes with `Promise.allSettled` so a single
   // rejected probe cannot short-circuit the others. `probeCategory` already
   // catches its own errors and never throws today, but using `allSettled` keeps
   // that isolation contract explicit and defends against any future probe

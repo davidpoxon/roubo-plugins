@@ -23,7 +23,7 @@ export async function validateConfig(params: {
     return { ok: false, errors: shapeErrors };
   }
 
-  // WU-032 AC #7 parity: clear the alerts-runtime token cache and Octokit
+  // IP-WU-032 AC #7 parity: clear the alerts-runtime token cache and Octokit
   // cache so a freshly-rotated OAuth token (e.g. after a re-consent flow
   // that ended with another validateConfig call) is picked up immediately
   // by the next source-bound RPC. Same defensive reset on every save path.

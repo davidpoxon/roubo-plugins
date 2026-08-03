@@ -140,7 +140,7 @@ describe("safeFetchAlerts", () => {
     if (!d.ok) expect(d.code).toBe("rate-limited");
   });
 
-  it("flags 401 with missingScope=security_events on every category (WU-039)", async () => {
+  it("flags 401 with missingScope=security_events on every category (IP-WU-039)", async () => {
     const transport = makeTransport({
       [CODE_URL]: { status: 401, headers: {}, body: "" },
       [SECRET_URL]: { status: 401, headers: {}, body: "" },
@@ -162,7 +162,7 @@ describe("safeFetchAlerts", () => {
     if (!d.ok) expect(d.missingScope).toBe("security_events");
   });
 
-  it("does not set missingScope on non-401 failures (WU-039)", async () => {
+  it("does not set missingScope on non-401 failures (IP-WU-039)", async () => {
     const transport = makeTransport({
       [CODE_URL]: { status: 404, headers: {}, body: "" },
       [SECRET_URL]: { status: 451, headers: {}, body: "" },

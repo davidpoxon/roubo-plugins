@@ -12,4 +12,4 @@ with a fetch adapter that translates standard fetch calls into `host.fetch`
 JSON-RPC requests. That keeps the `githubRequest` helper at `src/github-request.ts`
 byte-identical to its origin at `server/services/github.ts:255`, preserving
 the ETag short-circuit, primary + secondary rate-limit backoff, and 30s TTL
-caches without re-derivation (per FR-039, NFR-006).
+caches without re-derivation (per IP-FR-039, IP-NFR-006).
