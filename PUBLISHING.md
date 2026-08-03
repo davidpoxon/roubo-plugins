@@ -88,6 +88,17 @@ Each entry (the app's `MarketplaceCatalogEntry`, `shared/types.ts`) carries:
   the card can never contradict what is installed. The reference pipeline reads
   it from the `agentCompatibility:` block of the plugin's `roubo-plugin.yaml`, so
   the manifest stays the single place you declare it.
+- `roubo` (optional): the author-declared host semver range the plugin supports,
+  e.g. `"^1.5.0"`. Carried on the entry so a host outside the range marks the
+  listing incompatible, names the range you require, and offers no install or
+  update action, all before any artifact is downloaded. Unlike
+  `agentCompatibility` this one does gate: the install API refuses the same entry
+  with `incompatible-host` for a caller that skips the UI. It is not a trust
+  boundary, only an earlier refusal, and the app still re-reads the range off the
+  real manifest after staging, so an entry that omits the key behaves exactly as
+  it does today and is still caught post-download. The reference pipeline reads it
+  from the top-level `roubo:` key of the plugin's `roubo-plugin.yaml`, so the
+  manifest stays the single place you declare it.
 
 The first-party catalog additionally wraps these `entries` in
 `{ payload: { schemaVersion, generatedAt, keyId, entries }, signature }`. A
