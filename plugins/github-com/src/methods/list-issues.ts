@@ -18,11 +18,7 @@ import {
   rawToNormalizedIssue,
 } from "../normalize.js";
 import { fetchRepoAlerts, type AlertFlags } from "../alerts-runtime.js";
-import {
-  decodeCompositeCursor,
-  encodeCompositeCursor,
-  isStatusExcluded,
-} from "@roubo/shared-github";
+import { decodeCompositeCursor, encodeCompositeCursor, isStatusExcluded } from "../shared/index.js";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;

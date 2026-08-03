@@ -8,8 +8,7 @@ the published `@roubo` SDK packages.
 A Roubo plugin is a directory with a `roubo-plugin.yaml` manifest and a Node
 entry script, discovered by the app under `~/.roubo/plugins/<id>/`. This
 repository is where the first-party plugins are built: an npm workspace holding
-one package per plugin, plus a shared library that carries no manifest of its
-own.
+one package per plugin.
 
 Roubo has three plugin kinds, and the manifest's `kind` field picks one:
 
@@ -79,10 +78,6 @@ appended to it explicitly or it stays silently unbuilt.
 | [`@roubo/plugin-database`](./plugins/database/README.md)       | component   | `database`    | Provisions a docker-backed database for a bench.                                           |
 | [`@roubo/plugin-claude-code`](./plugins/claude-code/README.md) | agent       | `claude-code` | Launches Claude Code sessions with a configured model, effort, and permission mode.        |
 | [`@roubo/plugin-codex`](./plugins/codex/README.md)             | agent       | `codex`       | Launches Codex CLI sessions with a configured model, effort, approval policy, and sandbox. |
-
-`plugins/_shared-github` is a shared library rather than a plugin: it has no
-manifest, is not published to the catalog, and exists so the GitHub integration
-can reuse host-side request handling without re-deriving it.
 
 ## Links
 

@@ -1,5 +1,5 @@
 import type { ConnectionStatus, FetchInit, FetchResult } from "@roubo/plugin-sdk";
-import { SECURITY_EVENTS_SCOPE, detectTokenScopes, scopeStatus } from "@roubo/shared-github";
+import { SECURITY_EVENTS_SCOPE, detectTokenScopes, scopeStatus } from "../shared/index.js";
 import { getHost } from "../host-binding.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";

@@ -1,7 +1,7 @@
 /**
  * Per-repo dispatcher for the three Code/Secret/Dependabot alert categories.
  *
- * Wraps the `_shared-github` fetchers with `safeFetchAlerts` so per-category
+ * Wraps the `src/shared/` fetchers with `safeFetchAlerts` so per-category
  * fetch failures degrade to a `ListIssuesWarning` rather than throwing the
  * whole `listIssues` call. Only invoked on page 1 of a `listIssues` call;
  * `paginateAlerts` walks all alert pages internally, so subsequent issue
@@ -25,7 +25,7 @@ import {
   type AlertFetchCategory,
   type FetchTransport,
   type SafeFetchResult,
-} from "@roubo/shared-github";
+} from "./shared/index.js";
 import { getHost } from "./host-binding.js";
 import { INTEGRATION_ID } from "./normalize.js";
 

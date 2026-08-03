@@ -15,11 +15,5 @@ export default defineConfig({
   },
   // The packaged Electron app ships no plugin node_modules, so any dep omitted here becomes an
   // ERR_MODULE_NOT_FOUND at boot. Keep this list in sync with package.json dependencies.
-  noExternal: [
-    "@roubo/plugin-sdk",
-    "@roubo/shared",
-    "@roubo/shared-github",
-    "vscode-jsonrpc",
-    "octokit",
-  ],
+  noExternal: ["@roubo/plugin-sdk", "@roubo/shared", "vscode-jsonrpc", "octokit"],
 });

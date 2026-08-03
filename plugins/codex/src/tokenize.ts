@@ -3,10 +3,9 @@
  * tokens (AP-FR-017, AP-TC-088).
  *
  * A copy of the Claude Code plugin's tokenizer, deliberately duplicated rather
- * than shared: `plugins/_shared-github` is the only shared workspace and it is
- * GitHub-specific, so a new shared library for one 80-line pure function would
- * add a build-chain entry and a publish surface for no gain. If a third agent
- * plugin needs it, extract it then.
+ * than shared: there is no shared workspace here, and standing one up for a
+ * single 80-line pure function would add a build-chain entry and a publish
+ * surface for no gain. If a third agent plugin needs it, extract it then.
  *
  * This is a deliberately *literal* splitter, not a shell. It honours the two
  * quoting forms and the backslash escape so a user can pass an argument that
