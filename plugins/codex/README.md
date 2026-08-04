@@ -29,10 +29,13 @@ plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what th
 manifest's `roubo: ^1.5.0` pins, and an older Roubo does not install this
 version, so update Roubo first.
 
-The plugin itself is not yet published to the first-party Roubo marketplace: its
-id is absent from `INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs`, which
-is the list the catalog is packed and signed from, so no Codex CLI card appears
-on **Settings > Marketplace** yet. Build it from source instead:
+Install the plugin itself from the first-party Roubo marketplace: open
+**Settings > Marketplace**, pick Codex CLI, review the declared permissions, and
+confirm. The install stages the package into `~/.roubo/plugins/codex/`, and the
+plugin then appears on **Settings > Plugins** as an agent. Consent is checked
+before any launch, so an un-consented plugin stays inert.
+
+To build it from source in this repository instead:
 
 ```bash
 npm install
@@ -42,9 +45,7 @@ npm run build -w @roubo/plugin-codex
 That writes `plugins/codex/dist/`, which the manifest's
 `entry: ./dist/index.js` points at. Install the plugin directory
 `plugins/codex/` itself, the one holding `roubo-plugin.yaml`, through
-**Settings > Plugins > Install plugin** on the **Local directory** tab. It then
-appears on **Settings > Plugins** as an agent. Consent is checked before any
-launch, so an un-consented plugin stays inert.
+**Settings > Plugins > Install plugin** on the **Local directory** tab.
 
 ## Usage
 

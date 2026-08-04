@@ -33,11 +33,6 @@ repository: open **Settings > Marketplace**, pick the plugin, review its
 declared permissions, and confirm. Each plugin's own README covers its
 prerequisites and where its configuration lives.
 
-`codex` is the exception: it is not yet in the published first-party catalog
-(`INSTALLABLE_PLUGIN_IDS` in `scripts/release/pack.mjs` is what the catalog is
-built from), so it installs from a local directory today. Its README covers the
-route.
-
 To work on them, clone this repository. You need Node.js >= 24.14.0.
 
 ```bash

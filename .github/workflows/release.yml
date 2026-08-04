@@ -23,6 +23,7 @@ on:
         type: choice
         options:
           - claude-code
+          - codex
           - database
           - github-com
           - process
