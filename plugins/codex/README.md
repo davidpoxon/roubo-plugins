@@ -13,9 +13,9 @@ tokens (AP-FR-020, AP-US-009).
 It is the second agent-kind plugin, and the one that proves the contract is not
 Claude-shaped: everything Codex-specific lives in the argv strings below, and no
 Codex-specific code exists in Roubo core. Where the two agents differ (concrete
-config defaults instead of send-no-flag sentinels, no fine-grained rules
-surface, quiescence rather than a hook), the difference is declared by this
-plugin rather than special-cased by the host.
+config defaults on three of its four closed-choice axes instead of send-no-flag
+sentinels, no fine-grained rules surface, quiescence rather than a hook), the
+difference is declared by this plugin rather than special-cased by the host.
 
 ## Install
 
@@ -122,13 +122,13 @@ every enum below is validated in the plugin rather than left to the CLI.
 The plugin's `config` block (validated host-side against the manifest
 `configSchema`) accepts:
 
-| Key              | Required | Maps to descriptor                  | Notes                                                                                                                                                                |
-| ---------------- | -------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `model`          | no       | `--model <value>`                   | One of `default`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`. `default` is "Account default": it emits no `--model` at all. Defaults to `gpt-5.2-codex`. |
-| `effort`         | no       | `-c model_reasoning_effort=<value>` | One of `minimal`, `low`, `medium`, `high`, `xhigh`. Defaults to `medium`.                                                                                            |
-| `approvalPolicy` | no       | `-c approval_policy=<value>`        | One of `untrusted`, `on-request`, `never`. Defaults to `on-request`. A project permission posture overrides it.                                                      |
-| `sandbox`        | no       | `-c sandbox_mode=<value>`           | One of `read-only`, `workspace-write`, `danger-full-access`. Defaults to `workspace-write`. A project permission posture overrides it.                               |
-| `extraArgs`      | no       | extra argv tokens after the flags   | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.                                                                        |
+| Key              | Required | Maps to descriptor                  | Notes                                                                                                                                                                                                                                                                                              |
+| ---------------- | -------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`          | no       | `--model <value>`                   | One of `default`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`. `default` is "Account default": it emits no `--model` at all. Defaults to `default`, so an untouched config sends no `--model`. `gpt-5.2-codex` requires an API-key login and is rejected under a ChatGPT-account login. |
+| `effort`         | no       | `-c model_reasoning_effort=<value>` | One of `minimal`, `low`, `medium`, `high`, `xhigh`. Defaults to `medium`.                                                                                                                                                                                                                          |
+| `approvalPolicy` | no       | `-c approval_policy=<value>`        | One of `untrusted`, `on-request`, `never`. Defaults to `on-request`. A project permission posture overrides it.                                                                                                                                                                                    |
+| `sandbox`        | no       | `-c sandbox_mode=<value>`           | One of `read-only`, `workspace-write`, `danger-full-access`. Defaults to `workspace-write`. A project permission posture overrides it.                                                                                                                                                             |
+| `extraArgs`      | no       | extra argv tokens after the flags   | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.                                                                                                                                                                                                      |
 
 Unlike the Claude Code plugin, whose closed-choice fields default to a "send no
 flag" sentinel, three of the four axes here default to **concrete values**, and

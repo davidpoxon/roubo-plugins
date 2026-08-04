@@ -1,6 +1,6 @@
 id: codex
 name: Codex CLI
-version: 0.2.0
+version: 0.2.1
 description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
 kind: agent
 # `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
@@ -66,8 +66,8 @@ configSchema:
     model:
       title: Model
       type: string
-      default: gpt-5.2-codex
-      description: The model the session runs on, passed as `--model`. `Account default` sends no `--model` flag and defers to the Codex configuration.
+      default: default
+      description: The model the session runs on, passed as `--model`. `Account default` sends no `--model` flag and defers to the Codex configuration. A ChatGPT-account login rejects `gpt-5.2-codex`; pick it only if your Codex CLI is signed in with an API key.
       oneOf:
         - const: default
           title: Account default

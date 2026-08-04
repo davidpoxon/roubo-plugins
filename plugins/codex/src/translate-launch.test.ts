@@ -85,10 +85,10 @@ describe("codex translateLaunch (AP-FR-020, AP-US-009)", () => {
 
   it("falls back on the manifest defaults when the config is empty (AP-TC-086)", () => {
     // The host does not seed configSchema defaults into the effective config, so
-    // an unsaved form must still launch the argv the form shows.
+    // an unsaved form must still launch the argv the form shows. The model axis
+    // defaults to the account-default sentinel, so an untouched config sends no
+    // `--model` and stays launchable under either Codex auth mode.
     expect(buildArgs({})).toEqual([
-      "--model",
-      "gpt-5.2-codex",
       "-c",
       "model_reasoning_effort=medium",
       "-c",
@@ -105,7 +105,10 @@ describe("codex translateLaunch (AP-FR-020, AP-US-009)", () => {
   it("declares the same defaults the manifest does, so the form and the launch agree", () => {
     const yaml = manifest();
 
-    expect(yaml).toContain("default: gpt-5.2-codex");
+    // Anchored to the `model:` block rather than a bare substring: `default` is
+    // a sentinel value another field could plausibly carry, so a loose
+    // `toContain("default: default")` would not prove it is the model axis.
+    expect(yaml).toMatch(/\n {4}model:\n(?: {6}\S.*\n)*? {6}default: default\n/);
     expect(yaml).toContain("default: medium");
     expect(yaml).toContain("default: on-request");
     expect(yaml).toContain("default: workspace-write");
