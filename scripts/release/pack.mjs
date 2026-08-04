@@ -53,9 +53,38 @@ export const PLUGINS_DIR = path.join(REPO_ROOT, "plugins");
 
 /**
  * The installable plugins published to the marketplace. The list stays explicit
- * rather than globbed over `plugins/` so adding a plugin is a deliberate act.
+ * rather than globbed over `plugins/` so adding a plugin is a deliberate act, and
+ * a plugin left out of it is named in `CATALOG_OPT_OUT` below rather than merely
+ * absent from here.
+ *
+ * This list is one of three hand-maintained lists that together decide whether a
+ * plugin reaches users (davidpoxon/roubo-development#759); the other two are the
+ * `workflow_dispatch` choice list in .github/workflows/release.yml and the serial
+ * build chain in package.json. `scripts/release/__tests__/publish-list-parity.test.mjs`
+ * is what keeps the three in agreement, and
+ * `scripts/release/verify-catalog-coverage.mjs` is what checks this list against
+ * the catalog actually deployed.
  */
 export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "codex", "database", "github-com", "process"];
+
+/**
+ * Plugins that are built and tested on every PR but deliberately NOT published to
+ * the first-party catalog, keyed by plugin id with the reason as its value.
+ *
+ * A build-chain plugin missing from `INSTALLABLE_PLUGIN_IDS` is indistinguishable
+ * from one that was simply forgotten, which is how `codex` shipped for months as
+ * unreleasable and invisible to the catalog. Recording the exclusion here makes it
+ * a stated, reviewed decision: the parity test requires every build-chain id to be
+ * either installable or listed here, and rejects a stale entry (an id that is now
+ * published, or no longer built at all).
+ *
+ * Empty today, now that `codex` publishes (davidpoxon/roubo-development#758). It
+ * stays as the declared route for the next deliberate exclusion, because the
+ * alternative is that exclusion being inferred from absence again.
+ *
+ * @type {Record<string, string>}
+ */
+export const CATALOG_OPT_OUT = {};
 
 /** Files that always go into the tarball, in addition to the whole dist/ tree. */
 const TOP_LEVEL_ENTRIES = ["package.json", "roubo-plugin.yaml", "README.md"];
