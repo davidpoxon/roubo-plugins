@@ -1,0 +1,54 @@
+name: catalog-coverage
+
+# Guard B for davidpoxon/roubo-development#759: assert that every plugin in
+# INSTALLABLE_PLUGIN_IDS actually has an entry in the DEPLOYED catalog.
+#
+# fetch-release-assets.mjs skips an allow-listed plugin whose declared version has
+# no published release, with a warning and no failure, so `claude-code` was absent
+# from every shipped catalog for as long as it went untagged and nothing said so.
+#
+# This deliberately runs on a schedule and NOT in the publish path (pages.yml).
+# That workflow's tolerance for a missing release is intentional: a version bump
+# lands on `main` before its tag exists, so a strict check there would fail every
+# ordinary bump. A daily run comparing by plugin ID (the previous version's entry
+# is still deployed during a bump window) is what distinguishes "transiently
+# missing" from "missing for weeks".
+#
+# The offline half of the guard, list-versus-list parity, is a unit test under
+# scripts/release/__tests__/publish-list-parity.test.mjs and is gated by pr-check.
+#
+# Failing the run IS the notification; no token beyond read access is needed.
+# GitHub disables scheduled workflows after 60 days of repository inactivity, so
+# workflow_dispatch is the manual escape hatch.
+
+on:
+  schedule:
+    # Daily, off the hour to avoid the top-of-hour scheduling crush.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-coverage
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      # Pinned toolchain (.nvmrc) + clean install against the committed lockfile,
+      # matching every other release-script job. The script itself adds no runtime
+      # dependency: it uses Node's global fetch (CPHM-NFR-006).
+      - run: npm ci
+
+      - name: Verify published catalog coverage
+        run: node scripts/release/verify-catalog-coverage.mjs
