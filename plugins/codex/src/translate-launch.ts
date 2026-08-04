@@ -48,13 +48,20 @@ const SANDBOXES = ["read-only", "workspace-write", "danger-full-access"] as cons
  * The host does not seed `configSchema` defaults into the effective config: the
  * AI Agents form shows a schema default for an unsaved field, but only a saved
  * value reaches `translateLaunch`. Unlike the Claude Code plugin, whose defaults
- * are "send no flag" sentinels, the three Codex axes below default to concrete
- * values, so falling back here is what keeps the argv the form describes and the
- * argv that launches the same thing. It also keeps the approval and sandbox axes
- * off whatever `~/.codex/config.toml` happens to say, which is the safer failure
- * mode for a file Roubo does not manage.
+ * are "send no flag" sentinels, the effort, approval-policy, and sandbox axes
+ * default to concrete values, so falling back here is what keeps the argv the
+ * form describes and the argv that launches the same thing. It also keeps the
+ * approval and sandbox axes off whatever `~/.codex/config.toml` happens to say,
+ * which is the safer failure mode for a file Roubo does not manage.
+ *
+ * Model is the exception and defaults to the `default` sentinel, so an untouched
+ * config emits no `--model` at all. Deferring the model to the user's own Codex
+ * configuration is harmless, and naming a concrete model here is not: a frontier
+ * model such as `gpt-5.2-codex` requires an API-key login and is rejected under a
+ * ChatGPT-account login, an auth mode the plugin cannot detect, so a shipped
+ * concrete default would fail the first turn of a bench nobody had configured.
  */
-const DEFAULT_MODEL = "gpt-5.2-codex";
+const DEFAULT_MODEL = "default";
 const DEFAULT_EFFORT = "medium";
 const DEFAULT_APPROVAL_POLICY = "on-request";
 const DEFAULT_SANDBOX = "workspace-write";

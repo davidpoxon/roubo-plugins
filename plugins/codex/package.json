@@ -1,6 +1,6 @@
 {
   "name": "@roubo/plugin-codex",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Bundled Roubo agent plugin that launches Codex CLI sessions with configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.",
   "author": "David Poxon",
