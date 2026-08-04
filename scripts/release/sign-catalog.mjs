@@ -16,6 +16,13 @@
 // mismatch fails loudly rather than emitting an unverifiable catalog (exactly as
 // the app's sign-marketplace-catalog.ts does).
 //
+// Digest source: `--digest-source source` (the default, used by release.yml)
+// derives each entry from the checkout that produced the tarball just packed
+// into the build dir. `--digest-source asset` (used by pages.yml) derives it
+// from INSIDE each downloaded release tarball instead, so the hosted catalog
+// describes the artifact its `assetUrl` actually serves rather than whatever
+// `main` currently holds (davidpoxon/roubo-development#738).
+//
 // Revocation: entries named by the revocation input (the `--revoked` flag or the
 // `revokedEntryIds` list in marketplace/key-ring.config.json) are marked
 // `revoked: true`; the rest of the CatalogEntry shape is unchanged. Revoking is
@@ -32,7 +39,8 @@ import {
   sign as cryptoSign,
   verify as cryptoVerify,
 } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalPayloadBytes } from "./canonical.mjs";
@@ -43,6 +51,7 @@ import {
   integrityOfFile,
   pluginDirFor,
   readPluginMeta,
+  unpackTarball,
 } from "./pack.mjs";
 
 const CATALOG_SCHEMA_VERSION = 1;
@@ -60,83 +69,153 @@ function assetUrlFor(assetBase, id, version) {
 }
 
 /**
- * Build the (unsigned) catalog payload from the tarballs in a build dir. Only
- * plugins that have a packed `<id>-<version>.tgz` present are included, so a
- * single-plugin tag release produces a single-entry catalog and a `--all`
- * dispatch produces the full set.
+ * Assemble one catalog entry from a plugin's metadata and its two digests.
  *
- * @param {{ buildDir: string, assetBase: string, keyId: string, revokedIds?: Set<string> }} opts
+ * `source.sha256` pins the tarball BYTES a user downloads (seed-bundle.ts
+ * verifies the fetched `.tgz` against it). `integrity` pins the
+ * UNPACKED-ARTIFACT digest the host recomputes after install
+ * (roubo/server/services/marketplace-integrity.ts computePackageDigest); the two
+ * are derived differently and never agree. Both are supplied by the caller,
+ * because where they come from is exactly what `--digest-source` selects.
+ *
+ * @param {{ meta: ReturnType<typeof readPluginMeta>, assetBase: string, sourceSha256: string, integrity: string, revokedIds: Set<string> }} opts
+ * @returns {Record<string, unknown>}
  */
-function buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds = new Set() }) {
-  const present = new Set(readdirSync(buildDir).filter((f) => f.endsWith(".tgz")));
+function buildEntry({ meta, assetBase, sourceSha256, integrity, revokedIds }) {
+  /** @type {Record<string, unknown>} */
+  const entry = {
+    id: meta.id,
+    name: meta.name,
+    kind: meta.kind,
+    version: meta.version,
+    summary: meta.summary,
+    source: {
+      type: "release",
+      assetUrl: assetUrlFor(assetBase, meta.id, meta.version),
+      sha256: sourceSha256,
+    },
+    integrity,
+    provenance: `roubo-plugins/plugins/${meta.id}@${meta.version}`,
+    // Display-only first-party curation flag (distinct from the ed25519
+    // signature above). Every id in INSTALLABLE_PLUGIN_IDS is a curated
+    // first-party plugin, so the whole first-party catalog is verified. The
+    // app renders the green "Verified" trust pill only when this is true AND
+    // the source is first-party; force-false'd for third parties app-side
+    // (roubo/server/services/marketplace.ts annotate()), so a hostile source
+    // cannot borrow it. Omitting it read falsy => "Unverified" on genuine
+    // first-party cards.
+    verified: true,
+  };
+  // The agent-CLI compatibility window an agent plugin declares in its manifest
+  // (davidpoxon/roubo-development#722). Carried on the entry so a listing can
+  // render the floor and tested ceiling BEFORE anything is installed: a
+  // release-sourced entry has no manifest the host can read until then, and it
+  // is the manifest that wins once the plugin is on disk. Only agent plugins
+  // declare it and only agent listings render it, and, like `revoked` below,
+  // the key is added only when set, so a non-agent entry's canonical bytes are
+  // unchanged.
+  if (meta.kind === "agent" && (meta.minVersion || meta.testedCeiling)) {
+    entry.agentCompatibility = {
+      ...(meta.minVersion !== undefined && { minVersion: meta.minVersion }),
+      ...(meta.testedCeiling !== undefined && { testedCeiling: meta.testedCeiling }),
+    };
+  }
+  // The host semver range the plugin's manifest declares
+  // (davidpoxon/roubo-development#720). Carried on the entry so a host outside
+  // it can mark the listing incompatible and refuse the install BEFORE any
+  // artifact is downloaded, instead of discovering it from the manifest after
+  // the package is already staged. Added only when declared, in the same style
+  // as the two keys around it, so an entry without one is byte-identical to
+  // what this build produced before.
+  if (meta.roubo) entry.roubo = meta.roubo;
+  // A revoked entry is delisted by the client and blocked from install/update
+  // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
+  // so a non-revoked entry's shape is byte-identical to before.
+  if (revokedIds.has(meta.id)) entry.revoked = true;
+  return entry;
+}
+
+/**
+ * Build the (unsigned) catalog payload from the tarballs in a build dir. Only
+ * plugins that have a `<id>-<version>.tgz` present are included, so a
+ * single-plugin tag release produces a single-entry catalog and a full dispatch
+ * produces the full set.
+ *
+ * `digestSource` selects what the entry DESCRIBES:
+ *
+ *   - `"source"` (default, used by release.yml): the tarball in `buildDir` was
+ *     just packed from this checkout, so the entry's metadata and its
+ *     unpacked-artifact digest are read from `plugins/<id>/`. Within a tag
+ *     release the packed asset and the checkout are the same thing, so this
+ *     pairing is correct by construction.
+ *   - `"asset"` (used by pages.yml): the tarballs in `buildDir` were DOWNLOADED
+ *     from the published Releases, so both digests and the display metadata are
+ *     derived from inside each tarball rather than from the current tree. The
+ *     hosted catalog therefore describes the artifact its `assetUrl` actually
+ *     serves, even when `main` has moved on since the tag
+ *     (davidpoxon/roubo-development#738).
+ *
+ * @param {{ buildDir: string, assetBase: string, keyId: string, revokedIds?: Set<string>, digestSource?: "source" | "asset" }} opts
+ */
+function buildCatalogPayload({
+  buildDir,
+  assetBase,
+  keyId,
+  revokedIds = new Set(),
+  digestSource = "source",
+}) {
+  const present = readdirSync(buildDir)
+    .filter((f) => f.endsWith(".tgz"))
+    .sort();
 
   const entries = [];
-  for (const id of INSTALLABLE_PLUGIN_IDS) {
-    const meta = readPluginMeta(pluginDirFor(id));
-    const fileName = `${meta.id}-${meta.version}.tgz`;
-    if (!present.has(fileName)) continue;
-    // source.sha256 pins the tarball BYTES a user downloads (seed-bundle.ts
-    // verifies the fetched .tgz against it). integrity pins the
-    // UNPACKED-ARTIFACT digest the host recomputes after install
-    // (roubo/server/services/marketplace-integrity.ts computePackageDigest); the
-    // two are derived differently and never agree.
-    const sourceSha256 = integrityOfFile(path.join(buildDir, fileName)).integrity;
-    const integrity = computeArtifactDigest(pluginDirFor(meta.id));
-    /** @type {Record<string, unknown>} */
-    const entry = {
-      id: meta.id,
-      name: meta.name,
-      kind: meta.kind,
-      version: meta.version,
-      summary: meta.summary,
-      source: {
-        type: "release",
-        assetUrl: assetUrlFor(assetBase, meta.id, meta.version),
-        sha256: sourceSha256,
-      },
-      integrity,
-      provenance: `roubo-plugins/plugins/${meta.id}@${meta.version}`,
-      // Display-only first-party curation flag (distinct from the ed25519
-      // signature above). Every id in INSTALLABLE_PLUGIN_IDS is a curated
-      // first-party plugin, so the whole first-party catalog is verified. The
-      // app renders the green "Verified" trust pill only when this is true AND
-      // the source is first-party; force-false'd for third parties app-side
-      // (roubo/server/services/marketplace.ts annotate()), so a hostile source
-      // cannot borrow it. Omitting it read falsy => "Unverified" on genuine
-      // first-party cards.
-      verified: true,
-    };
-    // The agent-CLI compatibility window an agent plugin declares in its manifest
-    // (davidpoxon/roubo-development#722). Carried on the entry so a listing can
-    // render the floor and tested ceiling BEFORE anything is installed: a
-    // release-sourced entry has no manifest the host can read until then, and it
-    // is the manifest that wins once the plugin is on disk. Only agent plugins
-    // declare it and only agent listings render it, and, like `revoked` below,
-    // the key is added only when set, so a non-agent entry's canonical bytes are
-    // unchanged.
-    if (meta.kind === "agent" && (meta.minVersion || meta.testedCeiling)) {
-      entry.agentCompatibility = {
-        ...(meta.minVersion !== undefined && { minVersion: meta.minVersion }),
-        ...(meta.testedCeiling !== undefined && { testedCeiling: meta.testedCeiling }),
-      };
+  if (digestSource === "asset") {
+    for (const fileName of present) {
+      const tgzPath = path.join(buildDir, fileName);
+      const unpackDir = mkdtempSync(path.join(tmpdir(), "catalog-asset-"));
+      try {
+        unpackTarball(tgzPath, unpackDir);
+        const meta = readPluginMeta(unpackDir);
+        // The curated first-party set still gates what may be listed; the
+        // tarball only decides what a listed entry says about itself.
+        if (!INSTALLABLE_PLUGIN_IDS.includes(meta.id)) continue;
+        entries.push(
+          buildEntry({
+            meta,
+            assetBase,
+            sourceSha256: integrityOfFile(tgzPath).integrity,
+            integrity: computeArtifactDigest(unpackDir),
+            revokedIds,
+          }),
+        );
+      } finally {
+        rmSync(unpackDir, { recursive: true, force: true });
+      }
     }
-    // The host semver range the plugin's manifest declares
-    // (davidpoxon/roubo-development#720). Carried on the entry so a host outside
-    // it can mark the listing incompatible and refuse the install BEFORE any
-    // artifact is downloaded, instead of discovering it from the manifest after
-    // the package is already staged. Added only when declared, in the same style
-    // as the two keys around it, so an entry without one is byte-identical to
-    // what this build produced before.
-    if (meta.roubo) entry.roubo = meta.roubo;
-    // A revoked entry is delisted by the client and blocked from install/update
-    // at the next refresh (CPHM-FR-007 / AC4). The flag is only added when set,
-    // so a non-revoked entry's shape is byte-identical to before.
-    if (revokedIds.has(meta.id)) entry.revoked = true;
-    entries.push(entry);
+  } else {
+    const presentSet = new Set(present);
+    for (const id of INSTALLABLE_PLUGIN_IDS) {
+      const meta = readPluginMeta(pluginDirFor(id));
+      const fileName = `${meta.id}-${meta.version}.tgz`;
+      if (!presentSet.has(fileName)) continue;
+      entries.push(
+        buildEntry({
+          meta,
+          assetBase,
+          sourceSha256: integrityOfFile(path.join(buildDir, fileName)).integrity,
+          integrity: computeArtifactDigest(pluginDirFor(meta.id)),
+          revokedIds,
+        }),
+      );
+    }
   }
 
   if (entries.length === 0) {
-    throw new Error(`No packed tarballs found in ${buildDir}. Run pack.mjs first.`);
+    throw new Error(
+      digestSource === "asset"
+        ? `No release tarballs found in ${buildDir}. Run fetch-release-assets.mjs first.`
+        : `No packed tarballs found in ${buildDir}. Run pack.mjs first.`,
+    );
   }
 
   // Deterministic entry order so the same release inputs canonicalize the same.
@@ -209,6 +288,10 @@ async function main() {
   const buildDir = path.resolve(args["build-dir"] ?? "release-build");
   const assetBase = args["asset-base"] ?? process.env.MARKETPLACE_ASSET_BASE ?? DEFAULT_ASSET_BASE;
   const outPath = path.resolve(args.out ?? path.join(buildDir, "catalog.json"));
+  const digestSource = args["digest-source"] ?? "source";
+  if (digestSource !== "source" && digestSource !== "asset") {
+    throw new Error(`--digest-source must be 'source' or 'asset', got '${digestSource}'.`);
+  }
 
   const pem = (await readStdin()).trim();
   if (!pem) {
@@ -225,7 +308,7 @@ async function main() {
     revokedConfig: args["revoked-config"],
   });
 
-  const payload = buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds });
+  const payload = buildCatalogPayload({ buildDir, assetBase, keyId, revokedIds, digestSource });
   const bytes = canonicalPayloadBytes(payload);
   const signature = cryptoSign(null, bytes, privateKey).toString("base64");
 

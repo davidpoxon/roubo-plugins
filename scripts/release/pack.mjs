@@ -30,13 +30,19 @@
 //   - The toolchain is pinned by .nvmrc (24.15.0) + `npm ci` against the
 //     committed lockfile, so DEFLATE output is identical across runs.
 //
+// `unpackTarball()` is the writer's mirror: it reads one of these tarballs back
+// onto disk so an ALREADY-PUBLISHED release asset can be fed to `readPluginMeta`
+// and `computeArtifactDigest` unchanged. That is what lets the hosted catalog
+// describe the asset it links to rather than the current tree
+// (davidpoxon/roubo-development#738).
+//
 // Uses node:crypto and node:zlib only; adds no crypto/supply-chain dependency
-// (CPHM-NFR-006). Hand-rolling the ustar + gzip writer (rather than shelling out
-// to `tar`/`gzip`) is what makes the output independent of the host's tar/gzip
-// implementation.
+// (CPHM-NFR-006). Hand-rolling the ustar + gzip writer/reader (rather than
+// shelling out to `tar`/`gzip`) is what makes the output independent of the
+// host's tar/gzip implementation.
 
 import { createHash } from "node:crypto";
-import { deflateRawSync, constants as zlibConstants } from "node:zlib";
+import { deflateRawSync, gunzipSync, constants as zlibConstants } from "node:zlib";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -411,6 +417,116 @@ export function packPlugin({ pluginDir, outDir }) {
     sha256Hex,
     integrity: `sha256-${sha256Hex}`,
   };
+}
+
+/**
+ * Read a NUL-terminated (or field-width-bounded) ASCII/UTF-8 ustar string field.
+ *
+ * @param {Buffer} block @param {number} start @param {number} width
+ * @returns {string}
+ */
+function readStringField(block, start, width) {
+  const nul = block.indexOf(0, start);
+  const end = nul === -1 || nul > start + width ? start + width : nul;
+  return block.toString("utf8", start, end);
+}
+
+/**
+ * Read a zero-padded octal ustar numeric field.
+ *
+ * @param {Buffer} block @param {number} start @param {number} width
+ * @returns {number}
+ */
+function readOctalField(block, start, width) {
+  const raw = block
+    .toString("ascii", start, start + width)
+    .replace(/\0[\s\S]*$/, "")
+    .trim();
+  if (raw === "") return 0;
+  const value = Number.parseInt(raw, 8);
+  if (!Number.isFinite(value)) {
+    throw new Error(`Malformed octal ustar field at offset ${start}: ${JSON.stringify(raw)}`);
+  }
+  return value;
+}
+
+/**
+ * Extract a `.tgz` produced by `packPlugin()` into `destDir`: the exact inverse
+ * of `buildTar()` + `gzip()` above, and the reason the Pages catalog can derive
+ * its digests from the PUBLISHED release asset rather than from whatever `main`
+ * happens to hold (davidpoxon/roubo-development#738). Unpacking to a directory
+ * means `readPluginMeta()` and `computeArtifactDigest()` are reused verbatim, so
+ * there is no second digest implementation to keep in step.
+ *
+ * Deliberately narrow: it accepts only the shapes the writer above emits (ustar
+ * regular files and directories, names within the 100-byte `name` field, no
+ * `prefix`, no pax/GNU extension records, no symlinks or devices) and throws on
+ * anything else rather than guessing. Header checksums are verified, and an
+ * entry that would resolve outside `destDir` is refused.
+ *
+ * @param {string} tgzPath
+ * @param {string} destDir
+ * @returns {string} destDir
+ */
+export function unpackTarball(tgzPath, destDir) {
+  const tar = gunzipSync(readFileSync(tgzPath));
+  mkdirSync(destDir, { recursive: true });
+  const root = path.resolve(destDir);
+
+  /** Resolve an archive-relative entry name inside destDir, refusing to escape. */
+  const safeJoin = (name) => {
+    const target = path.resolve(root, name);
+    if (target !== root && !target.startsWith(root + path.sep)) {
+      throw new Error(`Refusing to extract entry outside the destination directory: ${name}`);
+    }
+    return target;
+  };
+
+  let offset = 0;
+  let fileCount = 0;
+  while (offset + 512 <= tar.length) {
+    const header = tar.subarray(offset, offset + 512);
+    offset += 512;
+    // A zero block terminates the archive; the writer emits two, then padding.
+    if (header.every((byte) => byte === 0)) break;
+
+    if (header.toString("ascii", 257, 262) !== "ustar") {
+      throw new Error(`${tgzPath} is not a ustar archive (bad magic at offset ${offset - 512}).`);
+    }
+    let checksum = 0;
+    for (let i = 0; i < 512; i++) checksum += i >= 148 && i < 156 ? 0x20 : header[i];
+    if (checksum !== readOctalField(header, 148, 8)) {
+      throw new Error(`${tgzPath} has a corrupt ustar header at offset ${offset - 512}.`);
+    }
+    if (header[345] !== 0) {
+      throw new Error(`${tgzPath} uses the ustar prefix field, which is not supported.`);
+    }
+
+    const name = readStringField(header, 0, 100);
+    const size = readOctalField(header, 124, 12);
+    const typeflag = header[156] === 0 ? "0" : String.fromCharCode(header[156]);
+
+    if (typeflag === "5") {
+      mkdirSync(safeJoin(name.replace(/\/+$/, "")), { recursive: true });
+      continue;
+    }
+    if (typeflag !== "0") {
+      throw new Error(`Unsupported ustar entry type '${typeflag}' for '${name}' in ${tgzPath}.`);
+    }
+    if (offset + size > tar.length) {
+      throw new Error(`${tgzPath} is truncated: entry '${name}' claims ${size} bytes.`);
+    }
+    const target = safeJoin(name);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, tar.subarray(offset, offset + size));
+    offset += Math.ceil(size / 512) * 512;
+    fileCount++;
+  }
+
+  if (fileCount === 0) {
+    throw new Error(`${tgzPath} contained no files.`);
+  }
+  return destDir;
 }
 
 /** Compute the `sha256-<hex>` integrity string of an existing file. */

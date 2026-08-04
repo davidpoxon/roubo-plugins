@@ -68,6 +68,30 @@ jobs:
       - run: npm ci
       - run: npm run coverage
 
+  # The scripts/release/**/*.test.mjs suite (catalog digest contract, key-ring
+  # gate, catalog-versus-asset agreement). It existed but no job ran it, so a
+  # regression in the publish pipeline was ungated.
+  release-scripts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+
+      # Five cases in catalog-integrity.test.mjs assert against a real packed
+      # plugin and t.skip() themselves when `plugins/*/dist` is absent, so
+      # without a build first they would pass vacuously and leave the
+      # `--digest-source source` path release.yml uses ungated.
+      - run: npm run build
+
+      - run: npm test
+
   build:
     runs-on: ubuntu-latest
     permissions:
