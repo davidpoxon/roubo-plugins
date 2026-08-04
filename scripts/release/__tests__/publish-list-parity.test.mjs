@@ -122,6 +122,20 @@ test("every `-w` target in the build chain names a real plugin workspace", () =>
   );
 });
 
+test("every plugin workspace is in the build chain", () => {
+  // The reverse direction, and the one that closes the last way a plugin can be
+  // in NO list at all: `workspaces: ["plugins/*"]` picks a new directory up
+  // automatically, so a plugin nobody adds to the hand-maintained `-w` chain is
+  // absent from the build chain, from INSTALLABLE_PLUGIN_IDS, and from
+  // CATALOG_OPT_OUT, and every other assertion here iterates one of those three.
+  const unbuilt = [...idByWorkspace.keys()].filter((name) => !buildChainWorkspaces.includes(name));
+  assert.deepEqual(
+    unbuilt,
+    [],
+    `these workspaces exist under plugins/ but are absent from the "build" chain in package.json, so they are never built: ${unbuilt.join(", ")}`,
+  );
+});
+
 const buildChainIds = buildChainWorkspaces
   .map((name) => idByWorkspace.get(name))
   .filter((id) => id !== undefined);
