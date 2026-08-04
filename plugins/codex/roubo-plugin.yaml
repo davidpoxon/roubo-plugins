@@ -67,7 +67,7 @@ configSchema:
       title: Model
       type: string
       default: default
-      description: The model the session runs on, passed as `--model`. `Account default` sends no `--model` flag and defers to the Codex configuration. Pick a specific model only if your Codex CLI is signed in with an API key; a ChatGPT-account login rejects `gpt-5.2-codex`.
+      description: The model the session runs on, passed as `--model`. `Account default` sends no `--model` flag and defers to the Codex configuration. A ChatGPT-account login rejects `gpt-5.2-codex`; pick it only if your Codex CLI is signed in with an API key.
       oneOf:
         - const: default
           title: Account default
