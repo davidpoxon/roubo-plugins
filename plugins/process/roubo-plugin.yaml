@@ -1,6 +1,6 @@
 id: process
 name: Process
-version: 0.1.0
+version: 0.2.0
 description: Bundled component plugin that supervises a long-running process for a bench.
 kind: component
 roubo: ^1.0.0
