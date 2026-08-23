@@ -19,6 +19,11 @@ import type { BenchContext, ProcessProvisionDescriptor } from "@roubo/plugin-sdk
  * - `directory`: a workspace-relative working directory. It maps to the
  *   descriptor's `cwd`, which the engine resolves against the bench
  *   `workspacePath`. Omitted means the workspace root.
+ * - `shell`: opt-in shell interpretation for `command` AND `setup` (#836).
+ *   Omitted, both run as argv, exactly as before. `true` runs them through
+ *   `/bin/sh -c`; a string such as `zsh -i` is the shell invocation they are
+ *   appended to as `-c`, and is the only form that reaches an interactive
+ *   shell (what an nvm-in-`.zshrc` setup needs). The host owns the branch.
  *
  * `dependsOn` is deliberately NOT a plugin-config field: core models it at the
  * component entry level (sibling to `config`, see `ComponentConfigSchema`) and
@@ -72,6 +77,14 @@ export function translate(params: {
   const setup = config.setup;
   if (typeof setup === "string" && setup.length > 0) {
     descriptor.setup = setup;
+  }
+
+  // A pure copy: the host's LifecycleEngine owns the argv-vs-shell branch, so
+  // the plugin never spawns anything itself. `false` is dropped rather than
+  // carried, since it is exactly the default.
+  const shell = config.shell;
+  if (shell === true || (typeof shell === "string" && shell.length > 0)) {
+    descriptor.shell = shell;
   }
 
   return descriptor;

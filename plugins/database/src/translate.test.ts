@@ -141,3 +141,46 @@ describe("database plugin translate (CP-FR-004, CP-FR-007)", () => {
     ).toThrow(/a non-empty "service" is required/);
   });
 });
+
+// #836: migration.shell is copied through untouched; the host owns the branch.
+describe("database plugin translate: migration.shell (#836)", () => {
+  it("omits shell when the migration config omits it", () => {
+    const descriptor = translate({
+      config: {
+        composeFile: "docker-compose.yml",
+        service: "postgres",
+        migration: { command: "npm run migrate" },
+      },
+      context,
+    });
+    expect(descriptor.migration).toEqual({ command: "npm run migrate" });
+  });
+
+  it("copies a string migration shell onto the descriptor", () => {
+    const descriptor = translate({
+      config: {
+        composeFile: "docker-compose.yml",
+        service: "postgres",
+        migration: { command: "nvm use && npm run migrate", args: ["--latest"], shell: "zsh -i" },
+      },
+      context,
+    });
+    expect(descriptor.migration).toEqual({
+      command: "nvm use && npm run migrate",
+      args: ["--latest"],
+      shell: "zsh -i",
+    });
+  });
+
+  it("copies shell: true and drops shell: false", () => {
+    const base = { composeFile: "docker-compose.yml", service: "postgres" };
+    expect(
+      translate({ config: { ...base, migration: { command: "m", shell: true } }, context })
+        .migration?.shell,
+    ).toBe(true);
+    expect(
+      translate({ config: { ...base, migration: { command: "m", shell: false } }, context })
+        .migration?.shell,
+    ).toBeUndefined();
+  });
+});

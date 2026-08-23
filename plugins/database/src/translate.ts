@@ -18,8 +18,11 @@ import type { BenchContext, DockerProvisionDescriptor } from "@roubo/plugin-sdk"
  *   before the database is considered ready (a seed/init step).
  * - `portEnvVar`: the env var the allocated host port is interpolated into for
  *   compose. The engine defaults it to `HOST_PORT` when omitted.
- * - `migration`: an optional `{ command, args? }` run after the service is
- *   healthy (and after the init service, when present).
+ * - `migration`: an optional `{ command, args?, shell? }` run after the service
+ *   is healthy (and after the init service, when present). `shell` is the
+ *   opt-in that makes the command run through a shell rather than as argv
+ *   (#836); the host owns the branch, and in shell mode it appends `args` to
+ *   the command line the shell interprets rather than to an argv.
  * - `connection`: an optional `{ template }` connection string; the engine fills
  *   `{{port}}` / `{{ports.<component>}}` with the allocated host port.
  * - `env`: environment variables merged into the compose interpolation
@@ -80,11 +83,15 @@ export function translate(params: {
 
   const migration = config.migration;
   if (migration !== undefined && migration !== null && typeof migration === "object") {
-    const m = migration as { command?: unknown; args?: unknown };
+    const m = migration as { command?: unknown; args?: unknown; shell?: unknown };
     if (typeof m.command === "string" && m.command.length > 0) {
       descriptor.migration = Array.isArray(m.args)
         ? { command: m.command, args: m.args as string[] }
         : { command: m.command };
+      // `false` is dropped rather than carried: it is exactly the default.
+      if (m.shell === true || (typeof m.shell === "string" && m.shell.length > 0)) {
+        descriptor.migration.shell = m.shell;
+      }
     }
   }
 

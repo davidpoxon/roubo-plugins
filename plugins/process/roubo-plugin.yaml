@@ -33,6 +33,17 @@ configSchema:
       type: string
       minLength: 1
       description: Working directory (relative to the workspace) the command runs in. Defaults to the workspace root.
+    shell:
+      oneOf:
+        - type: boolean
+        - type: string
+          minLength: 1
+      description: >-
+        Opt-in shell interpretation for `command` and `setup`. Omitted, both run as argv, so `&&`, `;`, globs
+        and `$VAR` are literal arguments. `true` runs them through `/bin/sh -c`, which makes those work but
+        sources no rc file, so shell functions such as `nvm` still do not resolve. A string is the shell
+        invocation the command is appended to as `-c`, for example `zsh -i` runs `zsh -i -c "<command>"`;
+        only that form reaches an interactive shell and can see an nvm-in-`.zshrc` setup.
   # `dependsOn` is intentionally absent: it is a component entry-level field
   # (sibling to `config`) that core validates and uses for start/stop ordering,
   # never part of the plugin's opaque `config`. See `ComponentConfigSchema`.

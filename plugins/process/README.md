@@ -27,11 +27,44 @@ The component's opaque `config` block (validated host-side against the manifest
 | `env`       | no       | `env`              | Environment variables injected into the process. Win over `envFile` on conflict.                                    |
 | `envFile`   | no       | `envFile`          | Workspace-relative KEY=VALUE file merged into the process environment.                                              |
 | `directory` | no       | `cwd`              | Workspace-relative working directory; the engine resolves it against the workspace. Defaults to the workspace root. |
+| `shell`     | no       | `shell`            | Opt-in shell interpretation for `command` **and** `setup`. Omitted, both run as argv. See below.                    |
 
 The only user-facing rename is `directory` -> the descriptor's `cwd`; the host
 engine resolves the relative path against the bench `workspacePath`, and merges
 `env` / `envFile` (explicit `env` wins), preserving built-in env/envFile
 injection.
+
+## `shell`
+
+`command` and `setup` are **argv by default**: the host tokenizes the string and
+spawns the first token, so `&&`, `;`, redirection, globs and `$VAR` are literal
+arguments and a shell function such as `nvm` is invisible. `shell` is the opt-in
+that changes that, and the plugin copies it onto the descriptor unchanged (the
+host's `LifecycleEngine` owns the branch, so the plugin still spawns nothing).
+
+- `shell: true` runs the command through `/bin/sh -c`. Operators, redirection,
+  globs and `$VAR` work. That shell is neither interactive nor login, so it
+  sources no rc file: **`shell: true` will not make `nvm use` work.**
+- `shell: <string>` is the shell invocation the command is appended to as `-c`,
+  so `zsh -i` spawns `zsh -i -c "<command>"`. This is the only form that reaches
+  an interactive shell, and therefore the only one that sees an
+  nvm-in-`.zshrc` setup. It accepts an absolute path (`/bin/zsh -ilc`) or a bare
+  command name resolved through `PATH` (`zsh -i`).
+
+An interactive shell sources the user's whole rc file on every start, so a heavy
+prompt framework adds startup latency and any rc line that writes to stdout lands
+in this component's logs. Prefer `shell: true` when that is enough.
+
+```yaml
+components:
+  frontend:
+    plugin:
+      id: process
+    config:
+      command: nvm use && npm run dev
+      shell: zsh -i
+      directory: web
+```
 
 `dependsOn` is **not** a `config` key. It is declared at the component entry
 level (a sibling of `plugin` and `config`, see the example below), where core

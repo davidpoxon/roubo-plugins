@@ -106,3 +106,38 @@ describe("process plugin translate (CP-FR-005, CP-FR-007)", () => {
     );
   });
 });
+
+// #836: the plugin stays a pure mapping. It copies `shell` onto the descriptor
+// and the host's LifecycleEngine owns the argv-vs-shell branch.
+describe("process plugin translate: shell (#836)", () => {
+  it("omits shell from the descriptor when the config omits it", () => {
+    const descriptor = translate({ config: { command: "npm run dev" }, context });
+    expect("shell" in descriptor).toBe(false);
+  });
+
+  it("copies shell: true onto the descriptor", () => {
+    const descriptor = translate({
+      config: { command: "cd web && npm run dev", shell: true },
+      context,
+    });
+    expect(descriptor.shell).toBe(true);
+  });
+
+  it("copies a string shell onto the descriptor verbatim", () => {
+    const descriptor = translate({
+      config: { command: "nvm use && npm run dev", shell: "zsh -i" },
+      context,
+    });
+    expect(descriptor.shell).toBe("zsh -i");
+  });
+
+  it("drops shell: false, which is exactly the default", () => {
+    const descriptor = translate({ config: { command: "npm run dev", shell: false }, context });
+    expect("shell" in descriptor).toBe(false);
+  });
+
+  it("drops an empty string shell", () => {
+    const descriptor = translate({ config: { command: "npm run dev", shell: "" }, context });
+    expect("shell" in descriptor).toBe(false);
+  });
+});
