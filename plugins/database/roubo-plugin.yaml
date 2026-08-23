@@ -43,6 +43,17 @@ configSchema:
           items:
             type: string
           description: Extra arguments appended to the migration command.
+        shell:
+          oneOf:
+            - type: boolean
+            - type: string
+              minLength: 1
+          description: >-
+            Opt-in shell interpretation for the migration command. Omitted, it runs as argv, so `&&`, `;`,
+            globs and `$VAR` are literal arguments. `true` runs it through `/bin/sh -c`. A string is the
+            shell invocation the command is appended to as `-c`, for example `zsh -i`, the only form that
+            reaches an interactive shell. In shell mode `args` are appended to the command line the shell
+            interprets rather than to an argv.
       additionalProperties: false
       description: Optional migration run after the service becomes healthy (and after the init service, when present).
     connection:
