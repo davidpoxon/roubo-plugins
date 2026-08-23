@@ -1,6 +1,6 @@
 id: github-com
 name: GitHub.com
-version: 0.1.0
+version: 0.2.0
 description: Bundled integration for issues, projects, and repositories on GitHub.com.
 kind: integration
 roubo: ^1.0.0
