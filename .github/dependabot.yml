@@ -26,6 +26,12 @@ updates:
       include:
         - "*"
     groups:
+      # Listed first so it takes precedence over dev-dependencies: vitest and
+      # @vitest/* must move in lockstep, including across major versions.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       dev-dependencies:
         dependency-type: "development"
         update-types:
