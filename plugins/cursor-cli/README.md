@@ -7,11 +7,12 @@ injected as the initial prompt.
 
 Roubo **agent** plugin that opens the Cursor CLI (`agent`) in a bench terminal.
 The session runs in the bench worktree, the bound jig is delivered as the
-initial prompt, and a free-form additional-CLI-arguments field is appended as
-separate argv tokens (APCC-FR-008, APCC-FR-014).
+initial prompt, the operating mode is passed as `--mode`, and a free-form
+additional-CLI-arguments field is appended as separate argv tokens
+(APCC-FR-008, APCC-FR-011, APCC-FR-012, APCC-FR-014). Cursor's own worktree
+flags are refused, because Roubo owns the worktree (APCC-FR-013).
 
-This release carries the package and its launch translation only. The model,
-mode, permission, notification, and compatibility-window axes are added by
+The model, permission, notification, and compatibility-window axes are added by
 later releases of this plugin.
 
 ## Install
@@ -57,6 +58,7 @@ terminal on a bench. The saved defaults live in
 # ~/.roubo/agents/_global/cursor-cli.yaml
 schemaVersion: 1
 config:
+  mode: plan
   extraArgs: --force
 ```
 
@@ -67,7 +69,7 @@ overlay both. The host merges all four layers before calling `translateLaunch`.
 With a jig bound to the bench, that config launches:
 
 ```
-agent --force "<jig content>"
+agent --mode plan --force "<jig content>"
 ```
 
 ## Reference
@@ -83,7 +85,7 @@ descriptor:
   schemaVersion: 1,
   kind: "agent-launch",
   command: "agent",
-  args: [/* extra args */],
+  args: [/* --mode, then extra args */],
   initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
 }
 ```
@@ -99,9 +101,10 @@ the launch context, so a given config always produces the same descriptor.
 
 ### Config
 
-| Key         | Required | Maps to descriptor                | Notes                                                                                         |
-| ----------- | -------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
-| `extraArgs` | no       | extra argv tokens after the flags | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing. |
+| Key         | Required | Maps to descriptor                | Notes                                                                                                  |
+| ----------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `mode`      | no       | `--mode <value>`                  | `agent` (default), `plan`, or `ask`. `agent` sends no flag. Any other value is rejected before launch. |
+| `extraArgs` | no       | extra argv tokens after the flags | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.          |
 
 `extraArgs` is split by a literal tokenizer, not a shell. Runs of unquoted
 whitespace separate tokens; `'…'` and `"…"` keep a run together and are
@@ -110,6 +113,21 @@ escapes only a quote or another backslash). Every other character is an
 ordinary literal, so `;`, `&`, `|`, `$`, parentheses, and backticks carry no
 meaning. An unbalanced quote or a dangling backslash is rejected with a clear
 error.
+
+The extra arguments come after every generated flag, so an extra argument can
+override a generated one. For example, `mode: plan` with `extraArgs: --mode ask`
+sends `--mode plan --mode ask`: the plugin keeps both entries, in that order,
+and the CLI decides which one applies.
+
+### Worktree guard
+
+Roubo already runs every bench in its own git worktree, so the plugin refuses
+Cursor's worktree flags wherever they appear in the argv, including inside
+`extraArgs`: `-w` (also with an attached name, as in `-wfeature`),
+`--worktree`, `--worktree-base`, and `--skip-worktree-setup`, each also in its
+`--flag=value` form. The launch fails before any terminal opens, with a message
+that names the flag and states that Roubo owns the worktree. Remove the flag and
+launch again.
 
 ### Jig injection
 

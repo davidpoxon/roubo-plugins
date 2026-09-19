@@ -108,6 +108,132 @@ describe("cursor-cli buildArgs", () => {
   });
 });
 
+describe("cursor-cli mode axis (APCC-FR-011)", () => {
+  it("emits the mode flag for plan and ask as two separate entries (APCC-TC-026)", () => {
+    expect(buildArgs({ mode: "plan" })).toEqual(["--mode", "plan"]);
+    expect(buildArgs({ mode: "ask" })).toEqual(["--mode", "ask"]);
+  });
+
+  it("emits no mode flag for the agent default or an absent field (APCC-TC-026)", () => {
+    expect(buildArgs({ mode: "agent" })).toEqual([]);
+    expect(buildArgs({})).toEqual([]);
+    expect(buildArgs({ mode: null })).toEqual([]);
+    expect(buildArgs({ mode: "" })).toEqual([]);
+  });
+
+  it("rejects an unrecognised mode, naming the field and its allowed values", () => {
+    expect(() => buildArgs({ mode: "print" })).toThrow(
+      /"mode" must be one of agent, plan, ask, but it was "print"/,
+    );
+    expect(() => buildArgs({ mode: 1 })).toThrow(/"mode" must be one of agent, plan, ask/);
+  });
+
+  it("declares the same default the manifest does, so the form and the launch agree", () => {
+    expect(manifest()).toMatch(/\n {4}mode:\n(?: {6}\S.*\n)*? {6}default: agent\n/);
+    expect(buildArgs({})).toEqual(buildArgs({ mode: "agent" }));
+  });
+});
+
+describe("cursor-cli extra arguments (APCC-FR-012)", () => {
+  it("splits two space-separated arguments into two entries (APCC-TC-027)", () => {
+    expect(buildArgs({ extraArgs: "--force --output-format" })).toEqual([
+      "--force",
+      "--output-format",
+    ]);
+  });
+
+  it("keeps a quoted value with a space as one entry without its quotes (APCC-TC-027)", () => {
+    expect(buildArgs({ extraArgs: '--model "gpt-5 high"' })).toEqual(["--model", "gpt-5 high"]);
+    expect(buildArgs({ extraArgs: "--model 'gpt-5 high'" })).toEqual(["--model", "gpt-5 high"]);
+  });
+
+  it("puts the extra arguments after every generated flag (APCC-TC-027)", () => {
+    expect(buildArgs({ mode: "plan", extraArgs: "--force" })).toEqual([
+      "--mode",
+      "plan",
+      "--force",
+    ]);
+  });
+
+  it("keeps a duplicate of a generated flag after it, so the extra one can override (APCC-TC-062)", () => {
+    expect(buildArgs({ mode: "plan", extraArgs: "--mode ask" })).toEqual([
+      "--mode",
+      "plan",
+      "--mode",
+      "ask",
+    ]);
+  });
+
+  it("passes a command separator through as literal entries (APCC-TC-028)", () => {
+    expect(buildArgs({ extraArgs: "--force; rm -rf /" })).toEqual(["--force;", "rm", "-rf", "/"]);
+    expect(buildArgs({ extraArgs: "--force && touch pwned | cat" })).toEqual([
+      "--force",
+      "&&",
+      "touch",
+      "pwned",
+      "|",
+      "cat",
+    ]);
+  });
+
+  it("passes a shell expansion through unexpanded (APCC-TC-028)", () => {
+    expect(buildArgs({ extraArgs: '--label $HOME "$(whoami)" `id`' })).toEqual([
+      "--label",
+      "$HOME",
+      "$(whoami)",
+      "`id`",
+    ]);
+  });
+});
+
+describe("cursor-cli worktree guard (APCC-FR-013)", () => {
+  it.each([
+    ["-w", "-w"],
+    ["-wfeature", "-w"],
+    ["--worktree", "--worktree"],
+    ["--worktree feature", "--worktree"],
+    ["--worktree=feature", "--worktree"],
+    ["--worktree-base main", "--worktree-base"],
+    ["--worktree-base=main", "--worktree-base"],
+    ["--skip-worktree-setup", "--skip-worktree-setup"],
+  ])(
+    "refuses %j in the extra arguments, naming %s and Roubo's ownership (APCC-TC-029, APCC-TC-030)",
+    (extraArgs, flag) => {
+      const run = () => buildArgs({ mode: "plan", extraArgs: `--force ${extraArgs}` });
+
+      expect(run).toThrow(`"${flag}" flag is not allowed`);
+      expect(run).toThrow(/Roubo owns the worktree/);
+    },
+  );
+
+  it("refuses the launch through translateLaunch too (APCC-TC-030)", () => {
+    const config = { extraArgs: "-w" };
+
+    expect(() => translateLaunch({ config, context: contextWith(config) })).toThrow(
+      /"-w" flag is not allowed, because Roubo owns the worktree/,
+    );
+  });
+
+  it("launches once the rejected flag is removed (APCC-TC-030)", () => {
+    const config = { mode: "ask", extraArgs: "--force" };
+
+    expect(translateLaunch({ config, context: contextWith(config) }).args).toEqual([
+      "--mode",
+      "ask",
+      "--force",
+    ]);
+  });
+
+  it("leaves flags that only resemble a worktree flag alone", () => {
+    expect(buildArgs({ extraArgs: "--worktrees --no-worktree -v worktree" })).toEqual([
+      "--worktrees",
+      "--no-worktree",
+      "-v",
+      "worktree",
+    ]);
+  });
+});
+
 describe("cursor-cli manifest (APCC-TC-059)", () => {
   it("declares an agent plugin on contract version 1 with the built entry", () => {
     const yaml = manifest();

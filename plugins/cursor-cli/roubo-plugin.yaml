@@ -20,10 +20,23 @@ agentInstallLocations:
 configSchema:
   type: object
   properties:
+    mode:
+      title: Mode
+      type: string
+      # Must equal DEFAULT_MODE in src/translate-launch.ts; a test asserts it.
+      default: agent
+      description: The operating mode the session starts in, passed as `--mode`. `Agent` is the CLI's own default and sends no flag.
+      oneOf:
+        - const: agent
+          title: Agent
+        - const: plan
+          title: Plan
+        - const: ask
+          title: Ask
     extraArgs:
       title: Additional CLI arguments
       type: string
-      description: Free-form extra arguments appended after the generated flags. Split into discrete argv tokens with quoting honoured; shell metacharacters are never interpreted.
+      description: Free-form extra arguments appended after the generated flags. Split into discrete argv tokens with quoting honoured; shell metacharacters are never interpreted. Cursor's worktree flags (`-w`, `--worktree`, `--worktree-base`, `--skip-worktree-setup`) are refused, because Roubo owns the worktree.
 permissions:
   network:
     hosts: []
