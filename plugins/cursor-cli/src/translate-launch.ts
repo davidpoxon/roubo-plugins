@@ -1,9 +1,13 @@
 import type {
   AgentLaunchContext,
   AgentLaunchDescriptor,
+  AgentPosture,
   NotificationWiring,
+  PermissionsCapability,
   VersionProbeSpec,
   WaitingDetectionSpec,
+  WorkspaceWriteSpec,
+  WriteOp,
 } from "@roubo/plugin-sdk";
 import { tokenize } from "./tokenize.js";
 
@@ -13,6 +17,14 @@ import { tokenize } from "./tokenize.js";
  * `agentInstallLocations`; it is never shell-interpreted.
  */
 const COMMAND = "agent";
+
+/**
+ * The bench-local file the Cursor CLI reads its project permission rules from.
+ * It is relative, so the host resolves it inside the bench workspace and
+ * rejects any escape. The user's global `~/.cursor/cli-config.json` is never a
+ * write target (APCC-TC-044, APCC-TC-045).
+ */
+const RULES_REL_PATH = ".cursor/cli.json";
 
 /**
  * The host truncates a positional prompt to this length before spawning, which
@@ -80,8 +92,11 @@ const WORKTREE_SHORT_FLAG = "-w";
  * the user's extra tokens follow them (APCC-TC-027), so an extra argument can
  * override a generated one rather than be overridden by it. Each flag and each
  * value is a separate argv entry: `["--mode", "plan"]`, never one joined
- * string. The permission axis lands in its own slice, ahead of the extra
- * arguments. The version axis adds no flag: it is the descriptor's
+ * string. The permission posture adds no flag here: its flags are declared on
+ * the permissions capability and the host appends them (see
+ * PERMISSIONS_CAPABILITY). When the selected posture carries its own `--mode`,
+ * the mode axis emits nothing, so one command line never holds two `--mode`
+ * flags (`omitMode`). The version axis adds no flag: it is the descriptor's
  * `capabilities.versionProbe` (see VERSION_PROBE). The notification wiring adds
  * no flag at all, because it rides a workspace file rather than argv (see
  * NOTIFICATION_WIRING).
@@ -98,7 +113,10 @@ const WORKTREE_SHORT_FLAG = "-w";
  * generated flags and the user's extra tokens alike (APCC-TC-029,
  * APCC-TC-030).
  */
-export function buildArgs(config: Record<string, unknown>): string[] {
+export function buildArgs(
+  config: Record<string, unknown>,
+  opts: { omitMode?: boolean } = {},
+): string[] {
   const args: string[] = [];
 
   const model = config.model;
@@ -114,7 +132,7 @@ export function buildArgs(config: Record<string, unknown>): string[] {
   }
 
   const mode = readChoice(config.mode, MODES, "mode", DEFAULT_MODE);
-  if (mode !== DEFAULT_MODE) args.push("--mode", mode);
+  if (mode !== DEFAULT_MODE && !opts.omitMode) args.push("--mode", mode);
 
   const extraArgs = config.extraArgs;
   if (extraArgs !== undefined && extraArgs !== null) {
@@ -200,16 +218,23 @@ export function translateLaunch(params: {
   // mapping; `context` is part of the contract signature.
   context: AgentLaunchContext;
 }): AgentLaunchDescriptor {
+  const permissions = readPermissions(params.config.permissions);
+  const rulesWrite = buildRulesWrite(permissions?.rules);
+
   return {
     schemaVersion: 1,
     kind: "agent-launch",
     command: COMMAND,
-    args: buildArgs(params.config),
+    // The posture flags are not pushed here: the host appends the selected
+    // posture's declared args, as it does for every agent plugin.
+    args: buildArgs(params.config, { omitMode: postureSetsMode(permissions?.posture) }),
     initialPrompt: { mode: "argv-positional", maxLength: MAX_PROMPT_LENGTH },
     capabilities: {
+      ...(rulesWrite !== undefined && { workspaceWrites: [rulesWrite] }),
       notification: NOTIFICATION_WIRING,
       versionProbe: VERSION_PROBE,
       waitingDetection: WAITING_DETECTION,
+      permissions: PERMISSIONS_CAPABILITY,
     },
   };
 }
@@ -282,3 +307,168 @@ const NOTIFICATION_WIRING: NotificationWiring = {
  * supplies only the number.
  */
 const WAITING_DETECTION: WaitingDetectionSpec = { kind: "hook-driven", quiescenceFallbackMs: 3000 };
+
+/**
+ * How the Cursor CLI realises each universal posture (APCC-FR-015).
+ *
+ * Every posture binds through argv alone, and each emits a distinct flag set
+ * (APCC-TC-039). The mapping, checked against `agent --help`:
+ *
+ * - `read-only`: `--mode plan`, the read-only planning mode that makes no edits.
+ * - `guarded`: `--sandbox enabled`, so every call that no rule allows prompts.
+ * - `auto-edit`: `--auto-review --sandbox enabled`, where the Auto-review
+ *   classifier runs the calls it judges safe and prompts for the rest.
+ * - `full-auto`: `--force --sandbox disabled`, which runs everything that no
+ *   rule denies.
+ *
+ * `--trust` is deliberately absent: it answers the workspace-trust prompt and is
+ * not a permission tier. With no posture selected the host appends nothing.
+ *
+ * The fine-grained rules are the other axis and need a file, so `rules`
+ * declares the workspace-write carrier and opts into resync: the host may
+ * re-apply them to an already-created bench workspace.
+ */
+const PERMISSIONS_CAPABILITY: PermissionsCapability = {
+  postures: {
+    "read-only": { args: ["--mode", "plan"] },
+    guarded: { args: ["--sandbox", "enabled"] },
+    "auto-edit": { args: ["--auto-review", "--sandbox", "enabled"] },
+    "full-auto": { args: ["--force", "--sandbox", "disabled"] },
+  },
+  rules: { carrier: "workspace-write", resync: true },
+};
+
+/**
+ * Whether the selected posture carries its own `--mode` flag. The host appends
+ * the posture's args after the generated argv, so the mode axis must stay silent
+ * then, or the command line would hold two `--mode` flags and leave which one
+ * wins to the CLI. Only `read-only` sets a mode today.
+ */
+function postureSetsMode(posture: AgentPosture | undefined): boolean {
+  if (posture === undefined) return false;
+  const args = PERMISSIONS_CAPABILITY.postures?.[posture]?.args;
+  return args?.includes("--mode") ?? false;
+}
+
+/** The permissions model the host layers onto the effective config, if any. */
+interface LaunchPermissions {
+  posture?: AgentPosture;
+  rules?: PermissionRules;
+}
+
+interface PermissionRules {
+  allow: string[];
+  ask: string[];
+  deny: string[];
+}
+
+const POSTURES: readonly AgentPosture[] = ["read-only", "guarded", "auto-edit", "full-auto"];
+
+function readPermissions(value: unknown): LaunchPermissions | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(
+      'cursor-cli agent plugin: "permissions" must be an object, but it was ' +
+        `${Array.isArray(value) ? "an array" : typeof value}.`,
+    );
+  }
+  const raw = value as { posture?: unknown; rules?: unknown };
+  const posture = readPosture(raw.posture);
+  const rules = readRules(raw.rules);
+  return {
+    ...(posture !== undefined && { posture }),
+    ...(rules !== undefined && { rules }),
+  };
+}
+
+function readPosture(value: unknown): AgentPosture | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string" && (POSTURES as readonly string[]).includes(value)) {
+    return value as AgentPosture;
+  }
+  throw new Error(
+    `cursor-cli agent plugin: "permissions.posture" must be one of ${POSTURES.join(", ")}, ` +
+      `but it was ${JSON.stringify(value)}.`,
+  );
+}
+
+function readRules(value: unknown): PermissionRules | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    allow: readRuleList(raw.allow),
+    ask: readRuleList(raw.ask),
+    deny: readRuleList(raw.deny),
+  };
+}
+
+function readRuleList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/**
+ * Roubo rule tool names mapped onto the typed tokens the Cursor CLI accepts.
+ * A rule already in Cursor form passes through; the Claude-style names map onto
+ * their nearest Cursor analogue. Any other tool name (for example `WebFetch`)
+ * has no Cursor analogue here, so its rule is dropped rather than written as a
+ * token Cursor would reject.
+ */
+const CURSOR_RULE_TYPES: Readonly<Record<string, "Shell" | "Read" | "Write">> = {
+  Shell: "Shell",
+  Read: "Read",
+  Write: "Write",
+  Bash: "Shell",
+  Edit: "Write",
+  MultiEdit: "Write",
+};
+
+/**
+ * Normalise one rule string into Cursor's typed form, or `undefined` when it
+ * has no Cursor analogue. `Tool(pattern)` keeps its pattern unchanged; a bare
+ * `Tool` covers every use of that tool, so it becomes `Tool(*)`.
+ */
+function toCursorRule(rule: string): string | undefined {
+  const match = /^([A-Za-z]+)(?:\((.*)\))?$/s.exec(rule.trim());
+  if (!match) return undefined;
+  const type = CURSOR_RULE_TYPES[match[1]];
+  if (type === undefined) return undefined;
+  const pattern = match[2] ?? "*";
+  return `${type}(${pattern})`;
+}
+
+function toCursorRules(rules: string[]): string[] {
+  const out: string[] = [];
+  for (const rule of rules) {
+    const typed = toCursorRule(rule);
+    if (typed !== undefined && !out.includes(typed)) out.push(typed);
+  }
+  return out;
+}
+
+/**
+ * The allow and deny rules as one declarative write to the bench's
+ * `.cursor/cli.json`, or `undefined` when there are none (APCC-FR-016).
+ *
+ * Cursor's rules carry allow and deny only, and deny beats allow. There is no
+ * ask tier: Cursor already prompts for anything neither allowed nor denied, so
+ * an ask rule maps onto that default and is never written (APCC-TC-042).
+ *
+ * `unionArray` rather than `set`, because the host applies the ops against the
+ * parsed existing file: any unrelated key, and any rule already in the lists,
+ * survives the write (APCC-TC-041, APCC-NFR-001).
+ */
+function buildRulesWrite(rules: PermissionRules | undefined): WorkspaceWriteSpec | undefined {
+  if (!rules) return undefined;
+  const ops: WriteOp[] = [];
+  const allow = toCursorRules(rules.allow);
+  if (allow.length > 0) {
+    ops.push({ op: "unionArray", path: "permissions.allow", values: allow });
+  }
+  const deny = toCursorRules(rules.deny);
+  if (deny.length > 0) {
+    ops.push({ op: "unionArray", path: "permissions.deny", values: deny });
+  }
+  if (ops.length === 0) return undefined;
+  return { relPath: RULES_REL_PATH, format: "json", ops };
+}

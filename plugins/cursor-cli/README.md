@@ -16,7 +16,9 @@ a notification for the bench that ran it, and an idle session falls back to a
 waiting notification when no hook fires (APCC-FR-017).
 
 The plugin also declares its supported Cursor CLI version window
-(APCC-FR-018). The permission axis is added by a later release of this plugin.
+(APCC-FR-018). It maps Roubo's four permission postures onto Cursor CLI flags
+and writes the project's allow and deny rules into the bench's own
+`.cursor/cli.json` (APCC-FR-015, APCC-FR-016).
 
 ## Install
 
@@ -96,9 +98,11 @@ descriptor:
   args: [/* --model <id>, --mode, then extra args */],
   initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
   capabilities: {
+    workspaceWrites: [/* the .cursor/cli.json rules write, when there are rules */],
     notification: { kind: "file-notifier", /* see below */ },
     waitingDetection: { kind: "hook-driven", quiescenceFallbackMs: 3000 },
     versionProbe: {/* see Compatibility window */},
+    permissions: { postures: {/* see Permissions */}, rules: { carrier: "workspace-write", resync: true } },
   },
 }
 ```
@@ -298,6 +302,56 @@ error naming every location tried. Install the CLI as described in
 [Install](#install) to fix it.
 
 ### Permissions
+
+The host layers the project's permissions model onto the effective config as
+`config.permissions`, above all four configuration layers, and this plugin maps
+both of its axes (APCC-FR-015, APCC-FR-016):
+
+```ts
+{ posture?: "read-only" | "guarded" | "auto-edit" | "full-auto",
+  rules: { allow: string[]; ask: string[]; deny: string[] } }
+```
+
+**Posture** binds through argv. The plugin declares each posture's flags on its
+permissions capability and the host appends the selected set; no two postures
+emit the same set, and with no posture selected no posture flag is emitted
+(APCC-TC-039):
+
+| Posture     | Emits                             | Effect                                                               |
+| ----------- | --------------------------------- | -------------------------------------------------------------------- |
+| `read-only` | `--mode plan`                     | Read-only planning mode: the session makes no edits.                 |
+| `guarded`   | `--sandbox enabled`               | Prompts for every call that no rule allows.                          |
+| `auto-edit` | `--auto-review --sandbox enabled` | The Auto-review classifier runs safe calls and prompts for the rest. |
+| `full-auto` | `--force --sandbox disabled`      | Runs everything that no rule denies.                                 |
+
+`--trust` is never emitted for a posture: it answers Cursor's workspace-trust
+prompt and is not a permission tier. When the selected posture sets its own
+`--mode` (only `read-only` does), the configured mode emits no flag, so a
+command line never carries two `--mode` flags.
+
+**Rules** need a file, so the plugin declares
+`rules: { carrier: "workspace-write", resync: true }` and emits a write to the
+bench's `.cursor/cli.json`. Cursor's rules carry allow and deny only, and deny
+beats allow:
+
+- `allow` and `deny` map onto `permissions.allow` and `permissions.deny`
+  (APCC-TC-040).
+- `ask` is never written. Cursor already prompts for anything neither allowed
+  nor denied, so an ask rule maps onto that default (APCC-TC-042).
+- Each rule is normalised into Cursor's typed form. `Shell(...)`, `Read(...)`,
+  and `Write(...)` pass through; `Bash(...)` becomes `Shell(...)`, and
+  `Edit(...)` and `MultiEdit(...)` become `Write(...)`. A bare tool name covers
+  every use, so `Bash` becomes `Shell(*)`. A rule with no Cursor analogue, for
+  example `WebFetch(...)`, is dropped rather than written as a token Cursor
+  rejects.
+
+The ops are `unionArray`, never `set`, and the host applies them against the
+parsed existing file, so an unrelated key in it and any rule already in the
+lists survive the write (APCC-TC-041). A project with no allow or deny rules
+produces no write at all. The path is relative, and the host resolves it inside
+the bench workspace and refuses and reports any write that escapes it
+(APCC-TC-045). The user's global `~/.cursor/cli-config.json` is never written
+(APCC-TC-044).
 
 The manifest declares `processes: false`, no credential slots, no filesystem
 paths, no network hosts, no ports, and no docker access. You sign in to Cursor
