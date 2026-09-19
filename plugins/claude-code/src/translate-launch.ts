@@ -25,9 +25,10 @@ const MAX_PROMPT_LENGTH = 100_000;
 /**
  * Model choices. `default` is the "account default" sentinel: it emits no
  * `--model` flag at all so the CLI falls back to the account setting
- * (AP-TC-090).
+ * (AP-TC-090). `opusplan` is the CLI's own alias for Opus while planning and
+ * Sonnet while executing, passed through verbatim like the other models.
  */
-const MODELS = ["default", "opus", "sonnet", "haiku"] as const;
+const MODELS = ["default", "opus", "opusplan", "sonnet", "haiku"] as const;
 
 /**
  * Reasoning-effort choices, each emitted verbatim as `--effort <value>`
