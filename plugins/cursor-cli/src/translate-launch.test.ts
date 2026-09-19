@@ -31,6 +31,10 @@ describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
       command: "agent",
       args: [],
       initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
+      capabilities: {
+        notification: expect.objectContaining({ kind: "file-notifier" }),
+        waitingDetection: expect.objectContaining({ kind: "hook-driven" }),
+      },
     });
   });
 
@@ -41,6 +45,7 @@ describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
 
     expect(Object.keys(descriptor).sort()).toEqual([
       "args",
+      "capabilities",
       "command",
       "initialPrompt",
       "kind",
@@ -81,6 +86,83 @@ describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
 
     expect(second).toEqual(first);
     expect(config).toEqual({ extraArgs: "--force" });
+  });
+});
+
+describe("cursor-cli notification wiring (APCC-FR-017)", () => {
+  function wiring() {
+    const notification = translateLaunch({ config: {}, context: contextWith() }).capabilities
+      ?.notification;
+    if (notification?.kind !== "file-notifier") {
+      throw new Error(`expected a file-notifier wiring, got ${notification?.kind}`);
+    }
+    return notification;
+  }
+
+  it("declares exactly the capabilities this slice owns", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(Object.keys(capabilities ?? {}).sort()).toEqual(["notification", "waitingDetection"]);
+  });
+
+  it("registers the notifier in hooks.stop of the workspace hooks file (APCC-TC-047)", () => {
+    const { event, carrier } = wiring();
+
+    expect(event).toBe("turn-complete");
+    expect(carrier.workspaceWrite).toEqual({
+      relPath: ".cursor/hooks.json",
+      format: "json",
+      ops: [
+        { op: "set", path: "version", value: 1 },
+        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+      ],
+    });
+  });
+
+  it("writes only the stop hook, so the user's other hooks and keys survive (APCC-TC-048)", () => {
+    const { ops } = wiring().carrier.workspaceWrite;
+
+    // Ops apply against the parsed existing file, so any path they do not
+    // touch is kept. Neither op may replace the whole `hooks` object.
+    expect(ops.map((op) => op.path)).toEqual(["version", "hooks.stop"]);
+    expect(ops.some((op) => op.op === "delete")).toBe(false);
+  });
+
+  it("templates the correlation value rather than declaring a real one (APCC-TC-049)", () => {
+    const notification = wiring();
+
+    expect(notification.carrier.args).toEqual(["{{notifier}}", "{{sessionId}}"]);
+    expect(notification.correlation).toEqual({ source: "template", template: "{{sessionId}}" });
+    // The host shell-quotes and joins the args itself; the plugin never
+    // builds the command string or embeds a minted id.
+    expect(JSON.stringify(notification)).not.toContain(contextWith().sessionId);
+  });
+
+  it("delivers the payload on the notifier's standard input (APCC-TC-049)", () => {
+    const notification = wiring();
+
+    expect(notification.payload).toBe("json-stdin");
+    // One argument after the program is the host notifier's cue to read stdin.
+    expect(notification.carrier.args).toHaveLength(2);
+  });
+
+  it("keeps the same wiring whatever session the host minted", () => {
+    const first = translateLaunch({ config: {}, context: contextWith() });
+    const second = translateLaunch({
+      config: {},
+      context: { ...contextWith(), sessionId: "99999999-8888-7777-6666-555555555555" },
+    });
+
+    expect(second.capabilities).toEqual(first.capabilities);
+  });
+
+  it("declares a 3000ms quiescence fallback for when the hook never fires (APCC-TC-050)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.waitingDetection).toEqual({
+      kind: "hook-driven",
+      quiescenceFallbackMs: 3000,
+    });
   });
 });
 
