@@ -1,6 +1,6 @@
 {
   "name": "@roubo/plugin-cursor-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Roubo agent plugin that launches Cursor CLI sessions in a bench, with the jig injected as the initial prompt and extra CLI arguments appended as separate argv tokens.",
   "author": "David Poxon",

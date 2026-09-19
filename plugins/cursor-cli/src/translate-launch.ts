@@ -2,6 +2,7 @@ import type {
   AgentLaunchContext,
   AgentLaunchDescriptor,
   NotificationWiring,
+  VersionProbeSpec,
   WaitingDetectionSpec,
 } from "@roubo/plugin-sdk";
 import { tokenize } from "./tokenize.js";
@@ -23,6 +24,30 @@ const COMMAND = "agent";
  * prompt as its first message.
  */
 const MAX_PROMPT_LENGTH = 100_000;
+
+/**
+ * The pre-launch version gate (APCC-FR-018, APCC-NFR-003).
+ *
+ * Declarative only: the plugin says which arguments read the version and where
+ * the supported window sits, and the host spawns the probe, parses the first
+ * three integer groups out of `agent --version`, and decides. The Cursor CLI
+ * reports a date-based build such as `2026.09.15-d2fe57e`, which `parse:
+ * "semver"` reads as `2026.09.15` and orders numerically across day, month, and
+ * year boundaries, so no contract change is needed (APCC-TC-053). The bounds
+ * mirror the manifest's `agentCompatibility` block, which is what the AI Agents
+ * screen renders without launching anything; these are what the launch gate
+ * enforces.
+ *
+ * `minVersion` is inclusive and blocking: `2026.09.08` is the earliest build any
+ * Roubo Cursor work touched. `testedCeiling` warns only: `2026.09.15` is the
+ * build this plugin was verified against.
+ */
+const VERSION_PROBE: VersionProbeSpec = {
+  args: ["--version"],
+  parse: "semver",
+  minVersion: "2026.09.08",
+  testedCeiling: "2026.09.15",
+};
 
 /**
  * Operating-mode choices, emitted as `--mode <value>` (APCC-FR-011,
@@ -55,9 +80,11 @@ const WORKTREE_SHORT_FLAG = "-w";
  * the user's extra tokens follow them (APCC-TC-027), so an extra argument can
  * override a generated one rather than be overridden by it. Each flag and each
  * value is a separate argv entry: `["--mode", "plan"]`, never one joined
- * string. The permission and version axes land in their own slices, ahead of
- * the extra arguments. The notification wiring adds no flag at all, because it
- * rides a workspace file rather than argv (see NOTIFICATION_WIRING).
+ * string. The permission axis lands in its own slice, ahead of the extra
+ * arguments. The version axis adds no flag: it is the descriptor's
+ * `capabilities.versionProbe` (see VERSION_PROBE). The notification wiring adds
+ * no flag at all, because it rides a workspace file rather than argv (see
+ * NOTIFICATION_WIRING).
  *
  * The selected model id is emitted unchanged as one `["--model", id]` pair
  * (APCC-FR-009). The id comes from the host-run `agent --list-models` probe and
@@ -181,6 +208,7 @@ export function translateLaunch(params: {
     initialPrompt: { mode: "argv-positional", maxLength: MAX_PROMPT_LENGTH },
     capabilities: {
       notification: NOTIFICATION_WIRING,
+      versionProbe: VERSION_PROBE,
       waitingDetection: WAITING_DETECTION,
     },
   };

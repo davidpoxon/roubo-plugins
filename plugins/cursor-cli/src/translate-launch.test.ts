@@ -34,6 +34,12 @@ describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
       capabilities: {
         notification: expect.objectContaining({ kind: "file-notifier" }),
         waitingDetection: expect.objectContaining({ kind: "hook-driven" }),
+        versionProbe: {
+          args: ["--version"],
+          parse: "semver",
+          minVersion: "2026.09.08",
+          testedCeiling: "2026.09.15",
+        },
       },
     });
   });
@@ -102,7 +108,11 @@ describe("cursor-cli notification wiring (APCC-FR-017)", () => {
   it("declares exactly the capabilities this slice owns", () => {
     const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
 
-    expect(Object.keys(capabilities ?? {}).sort()).toEqual(["notification", "waitingDetection"]);
+    expect(Object.keys(capabilities ?? {}).sort()).toEqual([
+      "notification",
+      "versionProbe",
+      "waitingDetection",
+    ]);
   });
 
   it("registers the notifier in hooks.stop of the workspace hooks file (APCC-TC-047)", () => {
@@ -163,6 +173,75 @@ describe("cursor-cli notification wiring (APCC-FR-017)", () => {
       kind: "hook-driven",
       quiescenceFallbackMs: 3000,
     });
+  });
+});
+
+/**
+ * Order two dotted versions by their first three integer groups, which is how
+ * the host's `parse: "semver"` compares them. A string compare would get
+ * `2026.10.01` against `2026.9.30` wrong, so the check is numeric.
+ */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
+}
+
+describe("cursor-cli version probe (APCC-FR-018, APCC-NFR-003)", () => {
+  it("declares the probe args, the parse mode, and the supported window (APCC-TC-052)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.versionProbe).toEqual({
+      args: ["--version"],
+      parse: "semver",
+      minVersion: "2026.09.08",
+      testedCeiling: "2026.09.15",
+    });
+  });
+
+  it("declares bounds the host accepts as exact versions, with the floor below the ceiling (APCC-TC-053)", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+    const { minVersion, testedCeiling } = capabilities?.versionProbe ?? {};
+
+    // The host's manifest schema accepts `\d+.\d+.\d+`, leading zeros included.
+    expect(minVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(testedCeiling).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(compareVersions(minVersion ?? "", testedCeiling ?? "")).toBeLessThan(0);
+  });
+
+  it("declares the same window the manifest does, so the card and the gate agree", () => {
+    const yaml = manifest();
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(yaml).toContain(`minVersion: ${capabilities?.versionProbe?.minVersion}`);
+    expect(yaml).toContain(`testedCeiling: ${capabilities?.versionProbe?.testedCeiling}`);
+  });
+
+  it("declares a manifest probe matching the descriptor's, so the card detects without launching", () => {
+    const yaml = manifest();
+    const { command, capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    // The manifest probe lets the AI Agents card show a detected version on a
+    // bench that was never started. It must run the same binary and args as the
+    // launch-time probe, or the card and the gate would report on two
+    // different CLIs.
+    expect(yaml).toMatch(/^ {2}probe:\n {4}command: agent$/m);
+    expect(yaml).toContain(`command: ${command}`);
+    for (const arg of capabilities?.versionProbe?.args ?? []) {
+      expect(yaml).toContain(`- ${arg}`);
+    }
+    expect(yaml).toContain(`parse: ${capabilities?.versionProbe?.parse}`);
+  });
+
+  it("declares the probe regardless of config, so the gate is never opted out of", () => {
+    const config = { extraArgs: "--force" };
+
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(capabilities?.versionProbe?.minVersion).toBe("2026.09.08");
   });
 });
 
@@ -372,6 +451,12 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
     expect(yaml).toMatch(
       /^choiceProbes:\n {2}model:\n {4}command: agent\n {4}args:\n {6}- --list-models\n {4}parse: dash-line-pairs$/m,
     );
+  });
+
+  it("declares the same version in the manifest and the package", () => {
+    const pkg = JSON.parse(read("../package.json")) as { version: string };
+
+    expect(manifest()).toMatch(new RegExp(`^version: ${pkg.version.replaceAll(".", "\\.")}$`, "m"));
   });
 
   it("declares an agent plugin on contract version 1 with the built entry", () => {
