@@ -5,8 +5,8 @@ import { translateLaunch } from "./translate-launch.js";
 // which emits an AgentLaunchDescriptor. The host validates that descriptor and
 // owns the PTY spawn, so the plugin spawns nothing itself and registers no host
 // client (APCC-NFR-001, `permissions.processes: false`). Every Cursor-native
-// identifier lives inside the argv strings this plugin produces, so no
-// Cursor-specific code lands in core.
+// identifier lives inside the argv strings and the hooks-file write this plugin
+// declares, so no Cursor-specific code lands in core.
 defineAgentPlugin({
   translateLaunch,
 });

@@ -11,9 +11,11 @@ initial prompt, the selected model is passed as one `--model` flag, the
 operating mode is passed as `--mode`, and a free-form additional-CLI-arguments
 field is appended as separate argv tokens (APCC-FR-008, APCC-FR-009,
 APCC-FR-011, APCC-FR-012, APCC-FR-014). Cursor's own worktree flags are
-refused, because Roubo owns the worktree (APCC-FR-013).
+refused, because Roubo owns the worktree (APCC-FR-013). A completed turn raises
+a notification for the bench that ran it, and an idle session falls back to a
+waiting notification when no hook fires (APCC-FR-017).
 
-The permission, notification, and compatibility-window axes are added by later
+The permission and compatibility-window axes are added by later
 releases of this plugin.
 
 ## Install
@@ -89,6 +91,10 @@ descriptor:
   command: "agent",
   args: [/* --model <id>, --mode, then extra args */],
   initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
+  capabilities: {
+    notification: { kind: "file-notifier", /* see below */ },
+    waitingDetection: { kind: "hook-driven", quiescenceFallbackMs: 3000 },
+  },
 }
 ```
 
@@ -153,6 +159,68 @@ The plugin declares `initialPrompt: { mode: "argv-positional", maxLength:
 100_000 }`. The host appends the bound jig as the final positional argument,
 after every argv entry the plugin emits, and truncates a longer jig to 100,000
 characters so the session still starts (APCC-TC-033, APCC-TC-034).
+
+### Turn-completion notifications
+
+Turn completion rides a Cursor `stop` hook. Cursor reads its hooks from
+`.cursor/hooks.json` in the workspace, so the plugin declares a write into that
+file in the bench worktree and the host carries it out at launch:
+
+```ts
+notification: {
+  kind: "file-notifier",
+  event: "turn-complete",
+  carrier: {
+    workspaceWrite: {
+      relPath: ".cursor/hooks.json",
+      format: "json",
+      ops: [
+        { op: "set", path: "version", value: 1 },
+        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+      ],
+    },
+    args: ["{{notifier}}", "{{sessionId}}"],
+  },
+  payload: "json-stdin",
+  correlation: { source: "template", template: "{{sessionId}}" },
+}
+```
+
+`stop` fires once per model turn, and also when a turn ends with a `status` of
+`aborted` or `error`. Cursor runs each hook `command` through `$SHELL -c` and
+writes the event JSON to its standard input. The host resolves `{{notifier}}` to
+the notifier program it ships and `{{sessionId}}` to the session id it mints,
+shell-quotes both, and joins them into the command string it writes in place of
+`{{notifierCommand}}`. The notifier gets the Roubo session id as its argument and
+the payload on stdin, so the notification goes to the bench that ran the turn
+(APCC-TC-046, APCC-TC-049). The plugin only declares templates; it never sees a
+real session id.
+
+One turn can send two `stop` events. The host reuses the bench's live
+notification, so one idle period raises at most one waiting notification, and a
+later idle period raises another (APCC-TC-051).
+
+The write keeps every other key in the file and every hook on another event
+(APCC-TC-048). One limit: it sets the whole `hooks.stop` array, so a `stop`
+entry of your own in the worktree's `.cursor/hooks.json` is replaced for a
+Roubo-launched session. The contract has no per-entry merge for hook objects
+yet; davidpoxon/roubo-development#890 tracks it.
+
+### Waiting notifications
+
+No hook fires while an approval prompt waits, so quiescence detection stays on
+for every session as the fallback:
+
+```ts
+waitingDetection: { kind: "hook-driven", quiescenceFallbackMs: 3000 }
+```
+
+When the session produces no output for 3000ms and no hook has fired, the host
+raises a waiting notification (APCC-TC-050). The window is measured against the
+Cursor CLI's own redraw behaviour: a working turn redraws about every 250ms, and
+the worst gap measured inside a turn was 1.05s, so a working turn never expires
+the timer. The host owns the timer, the notification, and the dismissal; the
+plugin supplies only the number.
 
 ### Binary discovery
 

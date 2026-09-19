@@ -1,4 +1,9 @@
-import type { AgentLaunchContext, AgentLaunchDescriptor } from "@roubo/plugin-sdk";
+import type {
+  AgentLaunchContext,
+  AgentLaunchDescriptor,
+  NotificationWiring,
+  WaitingDetectionSpec,
+} from "@roubo/plugin-sdk";
 import { tokenize } from "./tokenize.js";
 
 /**
@@ -50,8 +55,9 @@ const WORKTREE_SHORT_FLAG = "-w";
  * the user's extra tokens follow them (APCC-TC-027), so an extra argument can
  * override a generated one rather than be overridden by it. Each flag and each
  * value is a separate argv entry: `["--mode", "plan"]`, never one joined
- * string. The permission, notification, and version axes land in their own
- * slices, ahead of the extra arguments.
+ * string. The permission and version axes land in their own slices, ahead of
+ * the extra arguments. The notification wiring adds no flag at all, because it
+ * rides a workspace file rather than argv (see NOTIFICATION_WIRING).
  *
  * The selected model id is emitted unchanged as one `["--model", id]` pair
  * (APCC-FR-009). The id comes from the host-run `agent --list-models` probe and
@@ -153,8 +159,9 @@ function readChoice<T extends string>(
  * validates and executes (APCC-FR-008).
  *
  * The plugin is declarative: it emits argv and capability data, nothing else.
- * The host owns the PTY spawn, defaults `cwd` to the bench workspace, and
- * appends the initial prompt as the last positional. Because the host spawns
+ * The host owns the PTY spawn, defaults `cwd` to the bench workspace, resolves
+ * the notification templates and writes the hooks file, and appends the
+ * initial prompt as the last positional. Because the host spawns
  * `args` as an argv array and never through a shell, every token here reaches
  * the CLI literally (APCC-NFR-001).
  */
@@ -172,5 +179,78 @@ export function translateLaunch(params: {
     command: COMMAND,
     args: buildArgs(params.config),
     initialPrompt: { mode: "argv-positional", maxLength: MAX_PROMPT_LENGTH },
+    capabilities: {
+      notification: NOTIFICATION_WIRING,
+      waitingDetection: WAITING_DETECTION,
+    },
   };
 }
+
+/**
+ * Turn completion, carried by a Cursor `stop` hook (APCC-FR-017, spike 846).
+ *
+ * Cursor reads its hooks from `.cursor/hooks.json` in the workspace, so the
+ * registration rides a workspace write into the bench worktree. The plugin
+ * registers one entry in `hooks.stop[]`. `stop` fires once per model turn, and
+ * it also fires with a `status` of `aborted` or `error`; spike 846 rejected
+ * `sessionEnd` and `afterAgentResponse` as the completion signal.
+ *
+ * Cursor runs each hook `command` through `$SHELL -c` and writes the event JSON
+ * to the command's standard input (`payload: "json-stdin"`). The plugin never
+ * builds that string itself: it declares the notifier argv in `carrier.args`,
+ * and the host resolves `{{notifier}}` to the agent-generic notifier program it
+ * installs, resolves `{{sessionId}}` to the session id it mints, shell-quotes
+ * each element, joins them, and substitutes the result for
+ * `{{notifierCommand}}` in the write. The notifier then receives the Roubo
+ * session id as its one argument and the payload on stdin, so correlation
+ * needs no parsing of Cursor's own ids (APCC-TC-049). The session id is a
+ * template, never a real value, so this mapping stays pure.
+ *
+ * One turn can send two `stop` events. The host reuses the bench's live
+ * notification rather than raising a second one, so one idle period raises at
+ * most one waiting notification (APCC-TC-051).
+ *
+ * The ops apply in order against the parsed existing file, so every other key
+ * and every hook on another event survives (APCC-TC-048). One limit: `set`
+ * replaces the whole `hooks.stop` array, so a `stop` entry the user registered
+ * in this worktree's own hooks file is displaced for a Roubo-launched session.
+ * The contract's only merge op, `unionArray`, takes strings, and a hook entry is
+ * an object, so a per-entry merge needs a new host op
+ * (davidpoxon/roubo-development#890). `version: 1` is the
+ * hooks-file schema version Cursor requires.
+ */
+const NOTIFICATION_WIRING: NotificationWiring = {
+  kind: "file-notifier",
+  event: "turn-complete",
+  carrier: {
+    workspaceWrite: {
+      relPath: ".cursor/hooks.json",
+      format: "json",
+      ops: [
+        { op: "set", path: "version", value: 1 },
+        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+      ],
+    },
+    args: ["{{notifier}}", "{{sessionId}}"],
+  },
+  payload: "json-stdin",
+  correlation: { source: "template", template: "{{sessionId}}" },
+};
+
+/**
+ * How the host decides a Cursor session is waiting on the user (APCC-FR-017,
+ * APCC-NFR-003, APCC-TC-050).
+ *
+ * Hook-driven with a quiescence fallback that stays on for every session: no
+ * hook fires while an approval prompt waits, and a hook that never fires must
+ * still degrade to a waiting notification rather than raise nothing. The window
+ * is measured against the Cursor CLI's own redraw behaviour, not inherited from
+ * another agent (spike 846): a working turn redraws about every 250ms and the
+ * worst gap measured inside a turn was 1.05s, so 3000ms leaves close to a 3x
+ * margin and a working turn never expires the timer. It is shorter than the
+ * host's 8000ms hook default, which would delay approval detection for no gain.
+ *
+ * The host owns the timer, the notification, and the dismissal; the plugin
+ * supplies only the number.
+ */
+const WAITING_DETECTION: WaitingDetectionSpec = { kind: "hook-driven", quiescenceFallbackMs: 3000 };
