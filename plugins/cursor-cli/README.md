@@ -15,8 +15,8 @@ refused, because Roubo owns the worktree (APCC-FR-013). A completed turn raises
 a notification for the bench that ran it, and an idle session falls back to a
 waiting notification when no hook fires (APCC-FR-017).
 
-The permission and compatibility-window axes are added by later
-releases of this plugin.
+The plugin also declares its supported Cursor CLI version window
+(APCC-FR-018). The permission axis is added by a later release of this plugin.
 
 ## Install
 
@@ -31,6 +31,10 @@ agent --version
 The installer puts `agent` in `~/.local/bin`. When that directory is not on the
 PATH the Roubo server inherits, the host falls back to the manifest's
 `agentInstallLocations` (see [Binary discovery](#binary-discovery)).
+
+The installed build must be `2026.09.08` or newer. An older build blocks the
+launch before any terminal opens; update it with `agent update` or by running
+the installer again (see [Compatibility window](#compatibility-window)).
 
 There is a Roubo prerequisite too: the host must report plugin API `1.6.0` or
 newer, the release that the published `@roubo/plugin-sdk` 0.5.0 targets. That
@@ -94,6 +98,7 @@ descriptor:
   capabilities: {
     notification: { kind: "file-notifier", /* see below */ },
     waitingDetection: { kind: "hook-driven", quiescenceFallbackMs: 3000 },
+    versionProbe: {/* see Compatibility window */},
   },
 }
 ```
@@ -221,6 +226,60 @@ Cursor CLI's own redraw behaviour: a working turn redraws about every 250ms, and
 the worst gap measured inside a turn was 1.05s, so a working turn never expires
 the timer. The host owns the timer, the notification, and the dismissal; the
 plugin supplies only the number.
+
+### Compatibility window
+
+The plugin declares its supported Cursor CLI window in two places, and they are
+asserted to agree (APCC-FR-018). The manifest's `agentCompatibility` block is
+what the **Settings > AI Agents** card renders, so a user sees the window
+without launching anything; the descriptor's `capabilities.versionProbe` is what
+the host enforces at launch:
+
+```ts
+versionProbe: {
+  args: ["--version"],
+  parse: "semver",
+  minVersion: "2026.09.08",
+  testedCeiling: "2026.09.15",
+}
+```
+
+```yaml
+agentCompatibility:
+  minVersion: 2026.09.08
+  testedCeiling: 2026.09.15
+  probe:
+    command: agent
+    args:
+      - --version
+    parse: semver
+```
+
+The manifest `probe` is what lets the card show a **detected** version on a
+bench that was never started: the descriptor only exists once a launch is
+translated. It declares the same `command` and `args` as the descriptor's
+`versionProbe`, or the card and the launch gate would report on two different
+binaries; `src/translate-launch.test.ts` asserts both halves agree.
+
+The Cursor CLI reports a date-based build: `agent --version` prints, for
+example, `2026.09.15-d2fe57e`. `parse: semver` reads the first three integer
+groups, `2026.09.15`, and compares them numerically, so a build orders
+correctly across day, month, and year boundaries (APCC-TC-053). The leading
+zeros are valid in an exact version, so no contract change is needed.
+
+`minVersion` is the inclusive floor and it blocks (APCC-TC-054). `2026.09.08`
+is the earliest build any Roubo Cursor work touched, so the floor brackets the
+verified builds without claiming anything about older ones. A build below it
+fails the launch before any terminal opens, with a message that names the
+detected version, the required version, and how to update.
+
+`testedCeiling` is the build this plugin was verified against, and it never
+blocks (APCC-TC-055). The Cursor CLI ships on a date-based cadence, so
+refusing an unrecognised newer build would age far worse than a warning does.
+Above the ceiling the session launches with a non-blocking notice that names
+the ceiling, and an amber chip on the card. Raise the ceiling as part of
+re-verifying against a newer CLI, and raise `minVersion` only when something
+this plugin emits genuinely stops working.
 
 ### Binary discovery
 
