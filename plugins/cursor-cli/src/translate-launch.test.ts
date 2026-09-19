@@ -40,6 +40,7 @@ describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
           minVersion: "2026.09.08",
           testedCeiling: "2026.09.15",
         },
+        permissions: expect.any(Object),
       },
     });
   });
@@ -110,6 +111,7 @@ describe("cursor-cli notification wiring (APCC-FR-017)", () => {
 
     expect(Object.keys(capabilities ?? {}).sort()).toEqual([
       "notification",
+      "permissions",
       "versionProbe",
       "waitingDetection",
     ]);
@@ -242,6 +244,167 @@ describe("cursor-cli version probe (APCC-FR-018, APCC-NFR-003)", () => {
     const { capabilities } = translateLaunch({ config, context: contextWith(config) });
 
     expect(capabilities?.versionProbe?.minVersion).toBe("2026.09.08");
+  });
+});
+
+describe("cursor-cli permission postures (APCC-FR-015)", () => {
+  function postures() {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+    return capabilities?.permissions?.postures ?? {};
+  }
+
+  it("maps each of the four postures onto its Cursor flags", () => {
+    expect(postures()).toEqual({
+      "read-only": { args: ["--mode", "plan"] },
+      guarded: { args: ["--sandbox", "enabled"] },
+      "auto-edit": { args: ["--auto-review", "--sandbox", "enabled"] },
+      "full-auto": { args: ["--force", "--sandbox", "disabled"] },
+    });
+  });
+
+  it("gives every posture a distinct, non-empty flag set (APCC-TC-039)", () => {
+    const sets = Object.values(postures()).map((p) => JSON.stringify([...(p?.args ?? [])].sort()));
+
+    expect(sets).toHaveLength(4);
+    expect(sets.every((s) => s !== "[]")).toBe(true);
+    expect(new Set(sets).size).toBe(4);
+  });
+
+  it("never ties workspace trust to a posture", () => {
+    for (const posture of Object.values(postures())) {
+      expect(posture?.args).not.toContain("--trust");
+    }
+  });
+
+  it("emits no posture flag in args, with or without a posture (APCC-TC-039)", () => {
+    const flags = ["--mode", "--sandbox", "--auto-review", "--force"];
+    const none = translateLaunch({ config: {}, context: contextWith() });
+    const config = {
+      permissions: { posture: "full-auto", rules: { allow: [], ask: [], deny: [] } },
+    };
+    const selected = translateLaunch({ config, context: contextWith(config) });
+
+    // The host appends the selected posture's declared args; the plugin's own
+    // argv never carries one, so no posture means no posture flag at all.
+    for (const flag of flags) {
+      expect(none.args).not.toContain(flag);
+      expect(selected.args).not.toContain(flag);
+    }
+  });
+
+  it("drops the configured mode when the posture sets its own, so --mode appears once", () => {
+    const readOnly = {
+      mode: "ask",
+      permissions: { posture: "read-only", rules: { allow: [], ask: [], deny: [] } },
+    };
+    const guarded = {
+      mode: "ask",
+      permissions: { posture: "guarded", rules: { allow: [], ask: [], deny: [] } },
+    };
+
+    // read-only carries `--mode plan`, which the host appends after this argv.
+    expect(translateLaunch({ config: readOnly, context: contextWith(readOnly) }).args).toEqual([]);
+    // guarded sets no mode, so the configured mode still reaches the CLI.
+    expect(translateLaunch({ config: guarded, context: contextWith(guarded) }).args).toEqual([
+      "--mode",
+      "ask",
+    ]);
+  });
+
+  it("declares the rules carrier as a resyncable workspace write", () => {
+    const { capabilities } = translateLaunch({ config: {}, context: contextWith() });
+
+    expect(capabilities?.permissions?.rules).toEqual({ carrier: "workspace-write", resync: true });
+  });
+
+  it("rejects an unknown posture or a non-object permissions value", () => {
+    const bad = { permissions: { posture: "yolo" } };
+    expect(() => translateLaunch({ config: bad, context: contextWith(bad) })).toThrow(
+      /"permissions.posture" must be one of read-only, guarded, auto-edit, full-auto/,
+    );
+    const arr = { permissions: [] };
+    expect(() => translateLaunch({ config: arr, context: contextWith(arr) })).toThrow(
+      /"permissions" must be an object, but it was an array/,
+    );
+  });
+});
+
+describe("cursor-cli permission rules (APCC-FR-016)", () => {
+  function rulesWrites(rules: { allow?: string[]; ask?: string[]; deny?: string[] }) {
+    const config = { permissions: { rules: { allow: [], ask: [], deny: [], ...rules } } };
+    return translateLaunch({ config, context: contextWith(config) }).capabilities?.workspaceWrites;
+  }
+
+  it("writes allow and deny into .cursor/cli.json in Cursor's typed form (APCC-TC-040)", () => {
+    expect(
+      rulesWrites({
+        allow: ["Shell(git status)", "Bash(npm test)", "Read(src/**)"],
+        deny: ["Edit(.env)", "Write(secrets/**)", "Bash"],
+      }),
+    ).toEqual([
+      {
+        relPath: ".cursor/cli.json",
+        format: "json",
+        ops: [
+          {
+            op: "unionArray",
+            path: "permissions.allow",
+            values: ["Shell(git status)", "Shell(npm test)", "Read(src/**)"],
+          },
+          {
+            op: "unionArray",
+            path: "permissions.deny",
+            values: ["Write(.env)", "Write(secrets/**)", "Shell(*)"],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("merges rather than replaces, so an unrelated key survives (APCC-TC-041)", () => {
+    const [write] = rulesWrites({ allow: ["Shell(ls)"], deny: ["Shell(rm)"] }) ?? [];
+
+    // Only unionArray on the two rule lists: the host applies them against the
+    // parsed existing file, so every other key in it is left alone.
+    expect(write.ops.map((op) => op.op)).toEqual(["unionArray", "unionArray"]);
+    expect(write.ops.map((op) => op.path)).toEqual(["permissions.allow", "permissions.deny"]);
+  });
+
+  it("writes an ask rule into neither list, leaving Cursor to prompt (APCC-TC-042)", () => {
+    const [write] = rulesWrites({ allow: ["Shell(ls)"], ask: ["Shell(git push)"] }) ?? [];
+
+    expect(write.ops).toEqual([
+      { op: "unionArray", path: "permissions.allow", values: ["Shell(ls)"] },
+    ]);
+    expect(JSON.stringify(write)).not.toContain("git push");
+    expect(JSON.stringify(write)).not.toContain("ask");
+  });
+
+  it("produces no write for ask-only rules or no rules at all", () => {
+    expect(rulesWrites({ ask: ["Shell(git push)"] })).toBeUndefined();
+    expect(rulesWrites({})).toBeUndefined();
+    expect(
+      translateLaunch({ config: {}, context: contextWith() }).capabilities?.workspaceWrites,
+    ).toBeUndefined();
+  });
+
+  it("drops a rule with no Cursor analogue instead of writing an invalid token", () => {
+    expect(rulesWrites({ allow: ["WebFetch(domain:example.com)", "not a rule"] })).toBeUndefined();
+    expect(rulesWrites({ allow: ["WebFetch(x)", "Bash(ls)", "Shell(ls)"] })?.[0].ops).toEqual([
+      { op: "unionArray", path: "permissions.allow", values: ["Shell(ls)"] },
+    ]);
+  });
+
+  it("targets only a relative path inside the bench, never the global config (APCC-TC-044, APCC-TC-045)", () => {
+    const writes = rulesWrites({ allow: ["Shell(ls)"], deny: ["Read(~/.ssh/**)"] }) ?? [];
+
+    for (const { relPath } of writes) {
+      expect(relPath).toBe(".cursor/cli.json");
+      expect(relPath.startsWith("/")).toBe(false);
+      expect(relPath.startsWith("~")).toBe(false);
+      expect(relPath.split("/")).not.toContain("..");
+      expect(relPath).not.toContain("cli-config.json");
+    }
   });
 });
 
