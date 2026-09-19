@@ -78,13 +78,16 @@ export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "codex", "database", "gith
  * either installable or listed here, and rejects a stale entry (an id that is now
  * published, or no longer built at all).
  *
- * Empty today, now that `codex` publishes (davidpoxon/roubo-development#758). It
- * stays as the declared route for the next deliberate exclusion, because the
+ * `codex` left this list once it published (davidpoxon/roubo-development#758).
+ * It stays as the declared route for each deliberate exclusion, because the
  * alternative is that exclusion being inferred from absence again.
  *
  * @type {Record<string, string>}
  */
-export const CATALOG_OPT_OUT = {};
+export const CATALOG_OPT_OUT = {
+  "cursor-cli":
+    "Launch translation only so far; the catalog publish is its own slice (davidpoxon/roubo-development#865).",
+};
 
 /** Files that always go into the tarball, in addition to the whole dist/ tree. */
 const TOP_LEVEL_ENTRIES = ["package.json", "roubo-plugin.yaml", "README.md"];

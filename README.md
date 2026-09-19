@@ -18,8 +18,9 @@ Roubo has three plugin kinds, and the manifest's `kind` field picks one:
   [`process`](./plugins/process/README.md) and
   [`database`](./plugins/database/README.md).
 - **Agent** plugins launch an AI coding agent in a bench. First-party:
-  [`claude-code`](./plugins/claude-code/README.md) and
-  [`codex`](./plugins/codex/README.md).
+  [`claude-code`](./plugins/claude-code/README.md),
+  [`codex`](./plugins/codex/README.md), and
+  [`cursor-cli`](./plugins/cursor-cli/README.md).
 
 Component and agent plugins are declarative: they return a descriptor the host
 validates and executes, rather than driving the host themselves. Integration
@@ -73,6 +74,7 @@ appended to it explicitly or it stays silently unbuilt.
 | [`@roubo/plugin-database`](./plugins/database/README.md)       | component   | `database`    | Provisions a docker-backed database for a bench.                                           |
 | [`@roubo/plugin-claude-code`](./plugins/claude-code/README.md) | agent       | `claude-code` | Launches Claude Code sessions with a configured model, effort, and permission mode.        |
 | [`@roubo/plugin-codex`](./plugins/codex/README.md)             | agent       | `codex`       | Launches Codex CLI sessions with a configured model, effort, approval policy, and sandbox. |
+| [`@roubo/plugin-cursor-cli`](./plugins/cursor-cli/README.md)   | agent       | `cursor-cli`  | Launches Cursor CLI sessions with the jig injected as the initial prompt.                  |
 
 ## Links
 
