@@ -10,11 +10,29 @@
 // This is deliberately NOT run in the publish path. `--require-all` on
 // fetch-release-assets.mjs is version-pinned, so turning it on in pages.yml would
 // fail every ordinary version bump in the legitimate window between the `main`
-// push and the tag push. Running on a schedule, and comparing by plugin ID rather
-// than by version, is what distinguishes "transiently missing" from "missing for
-// weeks": during a bump window the PREVIOUS version's entry is still in the
-// deployed catalog, so this stays green, while a plugin that has never been
-// released has no entry at all and trips within one cycle.
+// push and the tag push.
+//
+// Be exact about what that window does to the catalog, because the obvious guess
+// is wrong. The `main` push carrying the bump matches pages.yml's `plugins/**`
+// filter, so the catalog is regenerated from the DECLARED versions' published
+// assets: the bumped plugin has no release yet, fetch-release-assets.mjs skips it,
+// and sign-catalog.mjs builds entries only from the tarballs that downloaded, so
+// the entry is dropped outright rather than left at the previous version. A
+// single-plugin bump therefore deploys a catalog short one id, and this guard is
+// RED if the cron fires in that window. That is correct, not a false alarm: the
+// plugin really is unlisted. The tag push alone does not end the window either; it
+// triggers release.yml, and only the pages rerun that release.yml's completion
+// fires redeploys a catalog carrying the id again. (davidpoxon/roubo-plugins#104
+// did this to `claude-code` for about three minutes.) An all-plugins bump behaves
+// differently again: nothing downloads, fetchReleaseAssets refuses to build an
+// empty catalog, the deploy fails, and the previous catalog stays up.
+//
+// Comparing by plugin ID rather than by version is still the load-bearing choice,
+// for that last reason: when a pages deploy fails or has not run, the last good
+// catalog stays up describing OLDER versions than the tree declares, and a
+// by-version check would call that a gap. A plugin that has never been released
+// has no entry at any version and trips within one cycle, which is the failure
+// this guard exists for.
 //
 // Node 24's global fetch covers the network call, so no new runtime dependency
 // (CPHM-NFR-006).
@@ -79,10 +97,12 @@ export function catalogEntryIds(catalog) {
 /**
  * Compare the deployed catalog against INSTALLABLE_PLUGIN_IDS.
  *
- * Comparison is by id only: a version bump legitimately leaves the catalog
- * describing the previous version until the tag is pushed and pages.yml
- * regenerates, and failing on that would recreate the false alarm this guard
- * exists to avoid.
+ * Comparison is by id only. A deployed catalog can legitimately describe an older
+ * version than the tree declares, because a pages deploy that failed or has not
+ * run leaves the last good catalog up, and failing on that would recreate the
+ * false alarm this guard exists to avoid. It does not make a bump window green: a
+ * regeneration that succeeds mid-bump drops the bumped id entirely, and a missing
+ * id is reported, as it should be.
  *
  * @param {{ url?: string, ids?: string[], fetchJson?: (url: string) => Promise<unknown> }} [opts]
  * @returns {Promise<{ url: string, present: string[], missing: string[], unexpected: string[] }>}
