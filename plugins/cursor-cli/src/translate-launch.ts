@@ -20,16 +20,47 @@ const COMMAND = "agent";
 const MAX_PROMPT_LENGTH = 100_000;
 
 /**
- * Build the generated argv from the effective config.
+ * Operating-mode choices, emitted as `--mode <value>` (APCC-FR-011,
+ * APCC-TC-026). `agent` is the CLI's own default, so it emits no flag.
+ */
+const MODES = ["agent", "plan", "ask"] as const;
+
+/**
+ * The value the mode axis falls back on when the config omits it. It MUST equal
+ * the manifest `configSchema` default, and a test asserts it does: the host
+ * does not seed schema defaults into the effective config, so an unsaved field
+ * reaches `translateLaunch` as absent.
+ */
+const DEFAULT_MODE = "agent";
+
+/**
+ * Cursor's own worktree flags (APCC-FR-013). Roubo already runs the bench in
+ * its own git worktree, so a CLI that creates another one would split the
+ * session from the bench. `-w` is the short form of `--worktree`.
+ */
+const WORKTREE_LONG_FLAGS = ["--worktree", "--worktree-base", "--skip-worktree-setup"] as const;
+const WORKTREE_SHORT_FLAG = "-w";
+
+/**
+ * Build the generated argv from the effective config: the `--mode` flag, then
+ * the tokenized extra arguments (APCC-FR-011, APCC-FR-012).
  *
- * This slice generates no flag of its own: the model, mode, permission,
- * notification, and version axes each land in their own slice and put their
- * flags ahead of the extra arguments. The tokenized extra arguments come last,
- * so an extra argument can override a generated one rather than be overridden
- * by it.
+ * Order matters and is part of the contract: the generated flags come first and
+ * the user's extra tokens follow them (APCC-TC-027), so an extra argument can
+ * override a generated one rather than be overridden by it. Each flag and each
+ * value is a separate argv entry: `["--mode", "plan"]`, never one joined
+ * string. The model, permission, notification, and version axes land in their
+ * own slices, ahead of the extra arguments.
+ *
+ * The worktree guard runs over the assembled argv, so one check covers the
+ * generated flags and the user's extra tokens alike (APCC-TC-029,
+ * APCC-TC-030).
  */
 export function buildArgs(config: Record<string, unknown>): string[] {
   const args: string[] = [];
+
+  const mode = readChoice(config.mode, MODES, "mode", DEFAULT_MODE);
+  if (mode !== DEFAULT_MODE) args.push("--mode", mode);
 
   const extraArgs = config.extraArgs;
   if (extraArgs !== undefined && extraArgs !== null) {
@@ -42,7 +73,58 @@ export function buildArgs(config: Record<string, unknown>): string[] {
     args.push(...tokenize(extraArgs));
   }
 
+  assertNoWorktreeFlag(args);
+
   return args;
+}
+
+/**
+ * Refuse the launch when any argv entry is one of Cursor's worktree flags. It
+ * matches the bare flag, the `--flag=value` form, and the short flag with an
+ * attached value (`-wname`). The message names the canonical flag and states
+ * that Roubo owns the worktree, so removing that flag is the clear fix.
+ */
+function assertNoWorktreeFlag(args: readonly string[]): void {
+  for (const arg of args) {
+    const flag = worktreeFlagOf(arg);
+    if (flag !== undefined) {
+      throw new Error(
+        `cursor-cli agent plugin: the "${flag}" flag is not allowed, because Roubo owns ` +
+          "the worktree. The session already runs in the bench's git worktree; remove " +
+          `"${flag}" from the additional CLI arguments.`,
+      );
+    }
+  }
+}
+
+function worktreeFlagOf(arg: string): string | undefined {
+  for (const flag of WORKTREE_LONG_FLAGS) {
+    if (arg === flag || arg.startsWith(`${flag}=`)) return flag;
+  }
+  if (arg.startsWith(WORKTREE_SHORT_FLAG)) return WORKTREE_SHORT_FLAG;
+  return undefined;
+}
+
+/**
+ * Read one closed-choice config field. An absent (or empty) field reads as that
+ * field's manifest default; an unrecognised value is rejected with a message
+ * naming the field and its allowed values, rather than passed through as an
+ * opaque argv token.
+ */
+function readChoice<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  field: string,
+  fallback: T,
+): T {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "string" && (allowed as readonly string[]).includes(value)) {
+    return value as T;
+  }
+  throw new Error(
+    `cursor-cli agent plugin: "${field}" must be one of ${allowed.join(", ")}, but it was ` +
+      `${JSON.stringify(value)}.`,
+  );
 }
 
 /**
