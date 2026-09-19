@@ -215,7 +215,8 @@ export function translateLaunch(params: {
  * replaces the whole `hooks.stop` array, so a `stop` entry the user registered
  * in this worktree's own hooks file is displaced for a Roubo-launched session.
  * The contract's only merge op, `unionArray`, takes strings, and a hook entry is
- * an object, so a per-entry merge needs a new host op. `version: 1` is the
+ * an object, so a per-entry merge needs a new host op
+ * (davidpoxon/roubo-development#890). `version: 1` is the
  * hooks-file schema version Cursor requires.
  */
 const NOTIFICATION_WIRING: NotificationWiring = {

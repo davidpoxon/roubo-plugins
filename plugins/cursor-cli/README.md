@@ -204,7 +204,7 @@ The write keeps every other key in the file and every hook on another event
 (APCC-TC-048). One limit: it sets the whole `hooks.stop` array, so a `stop`
 entry of your own in the worktree's `.cursor/hooks.json` is replaced for a
 Roubo-launched session. The contract has no per-entry merge for hook objects
-yet.
+yet; davidpoxon/roubo-development#890 tracks it.
 
 ### Waiting notifications
 
