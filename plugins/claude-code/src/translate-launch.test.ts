@@ -159,13 +159,16 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
     ]);
   });
 
-  it.each([["opus"], ["sonnet"], ["haiku"]])("maps model %s to --model %s (AP-TC-085)", (model) => {
-    expect(buildArgs({ model })).toEqual(["--model", model]);
-  });
+  it.each([["opus"], ["opusplan"], ["sonnet"], ["haiku"]])(
+    "maps model %s to --model %s (AP-TC-085)",
+    (model) => {
+      expect(buildArgs({ model })).toEqual(["--model", model]);
+    },
+  );
 
   it("rejects an unrecognised model, effort, or mode with a message naming the allowed values", () => {
     expect(() => buildArgs({ model: "gpt-4" })).toThrow(
-      /"model" must be one of default, opus, sonnet, haiku/,
+      /"model" must be one of default, opus, opusplan, sonnet, haiku/,
     );
     expect(() => buildArgs({ effort: "extreme" })).toThrow(
       /"effort" must be one of default, low, medium, high, xhigh, max/,

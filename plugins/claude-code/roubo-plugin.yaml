@@ -69,6 +69,8 @@ configSchema:
           title: Account default
         - const: opus
           title: Opus
+        - const: opusplan
+          title: Opus Plan
         - const: sonnet
           title: Sonnet
         - const: haiku

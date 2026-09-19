@@ -105,12 +105,12 @@ on, and the positional prompt (capped at 100,000 characters) closes the line.
 The plugin's `config` block (validated host-side against the manifest
 `configSchema`) accepts:
 
-| Key         | Required | Maps to descriptor                | Notes                                                                                                                                |
-| ----------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `model`     | no       | `--model <value>`                 | One of `default`, `opus`, `sonnet`, `haiku`. `default` is "Account default": it emits no `--model` at all and defers to the account. |
-| `effort`    | no       | `--effort <value>`                | One of `default`, `low`, `medium`, `high`, `xhigh`, `max`. `default` is "CLI default": it emits no `--effort` at all.                |
-| `mode`      | no       | `--permission-mode <value>`       | One of `default`, `plan`, `auto`, `acceptEdits`, `manual`. `default` emits no flag. `auto` emits `--permission-mode auto`.           |
-| `extraArgs` | no       | extra argv tokens after the flags | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.                                        |
+| Key         | Required | Maps to descriptor                | Notes                                                                                                                                                                                                            |
+| ----------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`     | no       | `--model <value>`                 | One of `default`, `opus`, `opusplan`, `sonnet`, `haiku`. `opusplan` runs Opus while planning and Sonnet while executing. `default` is "Account default": it emits no `--model` at all and defers to the account. |
+| `effort`    | no       | `--effort <value>`                | One of `default`, `low`, `medium`, `high`, `xhigh`, `max`. `default` is "CLI default": it emits no `--effort` at all.                                                                                            |
+| `mode`      | no       | `--permission-mode <value>`       | One of `default`, `plan`, `auto`, `acceptEdits`, `manual`. `default` emits no flag. `auto` emits `--permission-mode auto`.                                                                                       |
+| `extraArgs` | no       | extra argv tokens after the flags | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.                                                                                                                    |
 
 `default` is a sentinel rather than a literal value for all three closed-choice
 fields: omitting the flag is how the CLI is told to fall back to its own or the
