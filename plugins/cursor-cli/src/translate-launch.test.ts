@@ -234,7 +234,64 @@ describe("cursor-cli worktree guard (APCC-FR-013)", () => {
   });
 });
 
+describe("cursor-cli model (APCC-FR-009)", () => {
+  it("emits a selected id unchanged as one --model pair, with no brackets (APCC-TC-011)", () => {
+    const config = { model: "gpt-5.3-codex-high-fast" };
+
+    const { args } = translateLaunch({ config, context: contextWith(config) });
+
+    expect(args).toEqual(["--model", "gpt-5.3-codex-high-fast"]);
+    expect(args.filter((arg) => arg === "--model")).toHaveLength(1);
+    expect(args.join(" ")).not.toMatch(/[[\]]/);
+  });
+
+  it("emits no model flag for an unset, null, or empty model (APCC-TC-015, APCC-TC-017)", () => {
+    expect(buildArgs({})).toEqual([]);
+    expect(buildArgs({ model: null })).toEqual([]);
+    expect(buildArgs({ model: "" })).toEqual([]);
+  });
+
+  it("keeps an id with spaces or shell metacharacters as one argv entry (APCC-NFR-001)", () => {
+    const model = 'odd id; rm -rf $HOME "$(whoami)"';
+
+    expect(buildArgs({ model })).toEqual(["--model", model]);
+  });
+
+  it("puts --model ahead of the extra arguments, so an extra argument can override it", () => {
+    expect(buildArgs({ model: "sonnet-4.5", extraArgs: "--model gpt-5 --force" })).toEqual([
+      "--model",
+      "sonnet-4.5",
+      "--model",
+      "gpt-5",
+      "--force",
+    ]);
+  });
+
+  it("rejects a non-string model", () => {
+    expect(() => buildArgs({ model: 42 })).toThrow(/"model" must be a string, but it was number/);
+  });
+
+  it("orders --model ahead of --mode and both ahead of the extra arguments", () => {
+    expect(buildArgs({ model: "sonnet-4.5", mode: "plan", extraArgs: "--force" })).toEqual([
+      "--model",
+      "sonnet-4.5",
+      "--mode",
+      "plan",
+      "--force",
+    ]);
+  });
+});
+
 describe("cursor-cli manifest (APCC-TC-059)", () => {
+  it("declares model as a plain string populated by the list-models probe (APCC-TC-012)", () => {
+    const yaml = manifest();
+
+    expect(yaml).toMatch(/^ {4}model:\n {6}title: Model\n {6}type: string\n {6}description: /m);
+    expect(yaml).toMatch(
+      /^choiceProbes:\n {2}model:\n {4}command: agent\n {4}args:\n {6}- --list-models\n {4}parse: dash-line-pairs$/m,
+    );
+  });
+
   it("declares an agent plugin on contract version 1 with the built entry", () => {
     const yaml = manifest();
 

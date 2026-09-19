@@ -42,15 +42,24 @@ const WORKTREE_LONG_FLAGS = ["--worktree", "--worktree-base", "--skip-worktree-s
 const WORKTREE_SHORT_FLAG = "-w";
 
 /**
- * Build the generated argv from the effective config: the `--mode` flag, then
- * the tokenized extra arguments (APCC-FR-011, APCC-FR-012).
+ * Build the generated argv from the effective config: the `--model` flag, the
+ * `--mode` flag, then the tokenized extra arguments (APCC-FR-009,
+ * APCC-FR-011, APCC-FR-012).
  *
  * Order matters and is part of the contract: the generated flags come first and
  * the user's extra tokens follow them (APCC-TC-027), so an extra argument can
  * override a generated one rather than be overridden by it. Each flag and each
  * value is a separate argv entry: `["--mode", "plan"]`, never one joined
- * string. The model, permission, notification, and version axes land in their
- * own slices, ahead of the extra arguments.
+ * string. The permission, notification, and version axes land in their own
+ * slices, ahead of the extra arguments.
+ *
+ * The selected model id is emitted unchanged as one `["--model", id]` pair
+ * (APCC-FR-009). The id comes from the host-run `agent --list-models` probe and
+ * already fixes its effort and speed, so the plugin never adds bracketed
+ * parameters and never derives a base name from it (spike 847). An unset,
+ * null, or empty model emits no flag, which leaves the session on the account
+ * default; a failed probe leaves the field unset, so a launch still succeeds
+ * (APCC-TC-015, APCC-TC-017).
  *
  * The worktree guard runs over the assembled argv, so one check covers the
  * generated flags and the user's extra tokens alike (APCC-TC-029,
@@ -58,6 +67,18 @@ const WORKTREE_SHORT_FLAG = "-w";
  */
 export function buildArgs(config: Record<string, unknown>): string[] {
   const args: string[] = [];
+
+  const model = config.model;
+  if (model !== undefined && model !== null) {
+    if (typeof model !== "string") {
+      throw new Error(
+        `cursor-cli agent plugin: "model" must be a string, but it was ${typeof model}.`,
+      );
+    }
+    if (model !== "") {
+      args.push("--model", model);
+    }
+  }
 
   const mode = readChoice(config.mode, MODES, "mode", DEFAULT_MODE);
   if (mode !== DEFAULT_MODE) args.push("--mode", mode);
