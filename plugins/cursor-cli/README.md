@@ -7,13 +7,14 @@ injected as the initial prompt.
 
 Roubo **agent** plugin that opens the Cursor CLI (`agent`) in a bench terminal.
 The session runs in the bench worktree, the bound jig is delivered as the
-initial prompt, the operating mode is passed as `--mode`, and a free-form
-additional-CLI-arguments field is appended as separate argv tokens
-(APCC-FR-008, APCC-FR-011, APCC-FR-012, APCC-FR-014). Cursor's own worktree
-flags are refused, because Roubo owns the worktree (APCC-FR-013).
+initial prompt, the selected model is passed as one `--model` flag, the
+operating mode is passed as `--mode`, and a free-form additional-CLI-arguments
+field is appended as separate argv tokens (APCC-FR-008, APCC-FR-009,
+APCC-FR-011, APCC-FR-012, APCC-FR-014). Cursor's own worktree flags are
+refused, because Roubo owns the worktree (APCC-FR-013).
 
-The model, permission, notification, and compatibility-window axes are added by
-later releases of this plugin.
+The permission, notification, and compatibility-window axes are added by later
+releases of this plugin.
 
 ## Install
 
@@ -58,6 +59,7 @@ terminal on a bench. The saved defaults live in
 # ~/.roubo/agents/_global/cursor-cli.yaml
 schemaVersion: 1
 config:
+  model: gpt-5.3-codex-high-fast
   mode: plan
   extraArgs: --force
 ```
@@ -69,7 +71,7 @@ overlay both. The host merges all four layers before calling `translateLaunch`.
 With a jig bound to the bench, that config launches:
 
 ```
-agent --mode plan --force "<jig content>"
+agent --model gpt-5.3-codex-high-fast --mode plan --force "<jig content>"
 ```
 
 ## Reference
@@ -85,7 +87,7 @@ descriptor:
   schemaVersion: 1,
   kind: "agent-launch",
   command: "agent",
-  args: [/* --mode, then extra args */],
+  args: [/* --model <id>, --mode, then extra args */],
   initialPrompt: { mode: "argv-positional", maxLength: 100_000 },
 }
 ```
@@ -103,8 +105,24 @@ the launch context, so a given config always produces the same descriptor.
 
 | Key         | Required | Maps to descriptor                | Notes                                                                                                  |
 | ----------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `model`     | no       | `--model <id>`                    | A model id from `agent --list-models`, passed unchanged. Unset or empty emits no flag.                 |
 | `mode`      | no       | `--mode <value>`                  | `agent` (default), `plan`, or `ask`. `agent` sends no flag. Any other value is rejected before launch. |
 | `extraArgs` | no       | extra argv tokens after the flags | Free-form string, split into discrete argv entries. Empty or whitespace-only appends nothing.          |
+
+`model` has no static choice list. The manifest binds it to a `choiceProbes`
+entry, so the host runs `agent --list-models` and fills the field's choices
+from each `<id> - <label>` line of the listing. The heading and the trailing
+tip line are not choices. Each listed id already fixes its effort and speed,
+so the plugin passes the selected id as the value of one `--model` flag,
+unchanged, with no bracketed parameters and no derived base name. The flag and
+the id are separate argv entries, so an id is never shell-interpreted.
+
+An unset `model` emits no `--model` flag, and the session runs on your Cursor
+account default. When the probe fails (for example, the CLI is not installed or
+you are not signed in), the field stays unset and a launch still succeeds with
+no model flag. The `--model` flag comes before the extra arguments, so a
+`--model` in `extraArgs` overrides it. That is also the route for a bracketed
+model value.
 
 `extraArgs` is split by a literal tokenizer, not a shell. Runs of unquoted
 whitespace separate tokens; `'…'` and `"…"` keep a run together and are
