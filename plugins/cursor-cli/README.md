@@ -38,9 +38,9 @@ The installed build must be `2026.09.08` or newer. An older build blocks the
 launch before any terminal opens; update it with `agent update` or by running
 the installer again (see [Compatibility window](#compatibility-window)).
 
-There is a Roubo prerequisite too: the host must report plugin API `1.6.0` or
-newer, the release that the published `@roubo/plugin-sdk` 0.5.0 targets. That
-is what the manifest's `roubo: ^1.6.0` pins, and an older Roubo does not install
+There is a Roubo prerequisite too: the host must report plugin API `1.7.0` or
+newer, the release that the published `@roubo/plugin-sdk` 0.6.0 targets. That
+is what the manifest's `roubo: ^1.7.0` pins, and an older Roubo does not install
 this plugin, so update Roubo first.
 
 To build it from source in this repository:
