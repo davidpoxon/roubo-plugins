@@ -380,6 +380,20 @@ describe("cursor-cli permission rules (APCC-FR-016)", () => {
     expect(JSON.stringify(write)).not.toContain("ask");
   });
 
+  // The manifest's declared tiers and the tiers the write actually reaches have
+  // to be the same set, or the permissions screen would offer a tier that is
+  // dropped, or hide one that is not (#862, APCC-TC-043).
+  it("declares exactly the tiers the rules write reaches", () => {
+    const [write] =
+      rulesWrites({ allow: ["Shell(ls)"], ask: ["Shell(rm)"], deny: ["Shell(sudo)"] }) ?? [];
+
+    expect([...write.ops.map((op) => op.path)].sort()).toEqual([
+      "permissions.allow",
+      "permissions.deny",
+    ]);
+    expect(manifest()).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
+  });
+
   it("produces no write for ask-only rules or no rules at all", () => {
     expect(rulesWrites({ ask: ["Shell(git push)"] })).toBeUndefined();
     expect(rulesWrites({})).toBeUndefined();
@@ -637,6 +651,18 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
 
     expect(yaml).toMatch(/^agentInstallLocations:\n {2}- ~\/\.local\/bin\/agent$/m);
     expect(yaml).toContain(`/${command}\n`);
+  });
+
+  // APCC-TC-043 / APCC-FR-016. Cursor's rules format has no `ask` tier, so the
+  // manifest says which tiers it does carry and the permissions screen stops
+  // offering one whose rules `buildRulesWrite` would drop. The key needs host
+  // plugin API 1.7.0, so the declared range has to pin that floor or an older
+  // host would refuse the manifest on an unrecognised key instead of by version.
+  it("declares the two rule tiers Cursor carries, and the host floor that key needs", () => {
+    const yaml = manifest();
+
+    expect(yaml).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
+    expect(yaml).toMatch(/^roubo: \^1\.7\.0$/m);
   });
 
   it("declares the process capability false", () => {

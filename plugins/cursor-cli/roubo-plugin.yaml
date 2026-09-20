@@ -4,12 +4,12 @@ version: 0.2.0
 description: Agent plugin that launches Cursor CLI sessions in a bench, with the jig injected as the initial prompt and extra CLI arguments appended as separate argv tokens.
 kind: agent
 # Built against @roubo/plugin-sdk 0.5.0, which carries host plugin API 1.6.0.
-# `agentInstallLocations` below needs 1.5.0 on its own, and `choiceProbes`
-# needs 1.6.0; a sibling Cursor slice adds the other 1.6.0 member (the
-# `file-notifier` wiring). The manifest schema is strict, so the 1.6.0 floor
-# gives an older host a clean, version-named refusal rather than an
-# unknown-key error.
-roubo: ^1.6.0
+# `agentInstallLocations` below needs 1.5.0 on its own, `choiceProbes` needs
+# 1.6.0, as does the `file-notifier` wiring the descriptor returns, and
+# `agentPermissionRuleTiers` below needs 1.7.0. The manifest schema is strict,
+# so the 1.7.0 floor gives an older host a clean, version-named refusal rather
+# than an unknown-key error.
+roubo: ^1.7.0
 entry: ./dist/index.js
 contractVersion: 1
 # Where the Cursor CLI installs itself, probed when `agent` is not on the PATH
@@ -80,6 +80,15 @@ choiceProbes:
     args:
       - --list-models
     parse: dash-line-pairs
+# Cursor's project rules file carries an allow list and a deny list, and nothing
+# between them: it has no `ask` tier, and the CLI already prompts for anything
+# that is neither allowed nor denied. An `ask` rule is therefore dropped rather
+# than written (see the `buildRulesWrite` comment in src/translate-launch.ts),
+# so the permissions screen offers no way to make one and says what happens to
+# any already saved.
+agentPermissionRuleTiers:
+  - allow
+  - deny
 permissions:
   network:
     hosts: []
