@@ -5,12 +5,13 @@ description: Agent plugin that launches Cursor CLI sessions in a bench, with the
 kind: agent
 # Built against @roubo/plugin-sdk 0.6.0, which carries host plugin API 1.7.0.
 # `agentInstallLocations` below needs 1.5.0 on its own, `choiceProbes` and the
-# `file-notifier` wiring need 1.6.0, and the `upsertArray` op the hook
-# registration uses needs 1.7.0. The manifest schema is strict, so the 1.7.0
-# floor gives an older host a clean, version-named refusal rather than an
-# unknown-key error, and a launch-time rejection of the descriptor's write op
-# never happens.
-roubo: ^1.7.0
+# `file-notifier` wiring need 1.6.0, the `upsertArray` op the hook registration
+# uses needs 1.7.0, and `agentPermissionRuleTiers` below needs 1.8.0. The
+# manifest schema is strict, so the 1.8.0 floor gives an older host a clean,
+# version-named refusal rather than an unknown-key error, and a launch-time
+# rejection of the descriptor's write op never happens. The rule-tiers key is a
+# manifest key with no SDK type, so it needs the newer host but no newer SDK.
+roubo: ^1.8.0
 entry: ./dist/index.js
 contractVersion: 1
 # Where the Cursor CLI installs itself, probed when `agent` is not on the PATH
@@ -81,6 +82,15 @@ choiceProbes:
     args:
       - --list-models
     parse: dash-line-pairs
+# Cursor's project rules file carries an allow list and a deny list, and nothing
+# between them: it has no `ask` tier, and the CLI already prompts for anything
+# that is neither allowed nor denied. An `ask` rule is therefore dropped rather
+# than written (see the `buildRulesWrite` comment in src/translate-launch.ts),
+# so the permissions screen offers no way to make one and says what happens to
+# any already saved.
+agentPermissionRuleTiers:
+  - allow
+  - deny
 permissions:
   network:
     hosts: []

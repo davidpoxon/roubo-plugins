@@ -21,6 +21,22 @@ function manifest(): string {
   return read("../roubo-plugin.yaml");
 }
 
+/**
+ * Whether the manifest's `roubo: ^X.Y.Z` floor is at or above `min`. Each
+ * declaration that needs a newer host asserts its own minimum through this, so
+ * the tests keep guarding the reason each one exists and a later bump for a
+ * different declaration does not break them.
+ */
+function floorAtLeast(min: [number, number, number]): boolean {
+  const match = /^roubo: \^(\d+)\.(\d+)\.(\d+)$/m.exec(manifest());
+  if (!match) return false;
+  const floor = match.slice(1, 4).map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (floor[i] !== min[i]) return floor[i] > min[i];
+  }
+  return true;
+}
+
 describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
   it("emits a launch descriptor that runs the Cursor CLI (APCC-TC-032)", () => {
     const descriptor = translateLaunch({ config: {}, context: contextWith() });
@@ -402,6 +418,20 @@ describe("cursor-cli permission rules (APCC-FR-016)", () => {
     expect(JSON.stringify(write)).not.toContain("ask");
   });
 
+  // The manifest's declared tiers and the tiers the write actually reaches have
+  // to be the same set, or the permissions screen would offer a tier that is
+  // dropped, or hide one that is not (#862, APCC-TC-043).
+  it("declares exactly the tiers the rules write reaches", () => {
+    const [write] =
+      rulesWrites({ allow: ["Shell(ls)"], ask: ["Shell(rm)"], deny: ["Shell(sudo)"] }) ?? [];
+
+    expect([...write.ops.map((op) => op.path)].sort()).toEqual([
+      "permissions.allow",
+      "permissions.deny",
+    ]);
+    expect(manifest()).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
+  });
+
   it("produces no write for ask-only rules or no rules at all", () => {
     expect(rulesWrites({ ask: ["Shell(git push)"] })).toBeUndefined();
     expect(rulesWrites({})).toBeUndefined();
@@ -661,11 +691,22 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
     expect(yaml).toContain(`/${command}\n`);
   });
 
+  // APCC-TC-043 / APCC-FR-016. Cursor's rules format has no `ask` tier, so the
+  // manifest says which tiers it does carry and the permissions screen stops
+  // offering one whose rules `buildRulesWrite` would drop. The key needs host
+  // plugin API 1.8.0, so the declared range has to pin at least that floor or an
+  // older host would refuse the manifest on an unrecognised key instead of by
+  // version.
+  it("declares the two rule tiers Cursor carries, and the host floor that key needs", () => {
+    expect(manifest()).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
+    expect(floorAtLeast([1, 8, 0])).toBe(true);
+  });
+
   it("pins the host floor the hook registration's write op needs", () => {
     // `upsertArray` arrived with host API 1.7.0. The descriptor schema is
     // strict, so a host below that floor would reject the whole descriptor at
     // launch; the pin turns that into a version-named refusal at install.
-    expect(manifest()).toMatch(/^roubo: \^1\.7\.0$/m);
+    expect(floorAtLeast([1, 7, 0])).toBe(true);
   });
 
   it("declares the process capability false", () => {
