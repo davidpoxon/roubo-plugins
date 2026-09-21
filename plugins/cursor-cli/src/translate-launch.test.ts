@@ -656,13 +656,13 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
   // APCC-TC-043 / APCC-FR-016. Cursor's rules format has no `ask` tier, so the
   // manifest says which tiers it does carry and the permissions screen stops
   // offering one whose rules `buildRulesWrite` would drop. The key needs host
-  // plugin API 1.7.0, so the declared range has to pin that floor or an older
+  // plugin API 1.8.0, so the declared range has to pin that floor or an older
   // host would refuse the manifest on an unrecognised key instead of by version.
   it("declares the two rule tiers Cursor carries, and the host floor that key needs", () => {
     const yaml = manifest();
 
     expect(yaml).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
-    expect(yaml).toMatch(/^roubo: \^1\.7\.0$/m);
+    expect(yaml).toMatch(/^roubo: \^1\.8\.0$/m);
   });
 
   it("declares the process capability false", () => {

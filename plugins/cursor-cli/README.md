@@ -38,9 +38,9 @@ The installed build must be `2026.09.08` or newer. An older build blocks the
 launch before any terminal opens; update it with `agent update` or by running
 the installer again (see [Compatibility window](#compatibility-window)).
 
-There is a Roubo prerequisite too: the host must report plugin API `1.7.0` or
+There is a Roubo prerequisite too: the host must report plugin API `1.8.0` or
 newer, the release that added the `agentPermissionRuleTiers` manifest key this
-plugin declares. That is what the manifest's `roubo: ^1.7.0` pins, and an older
+plugin declares. That is what the manifest's `roubo: ^1.8.0` pins, and an older
 Roubo does not install this plugin, so update Roubo first. Everything else the
 plugin uses comes from the published `@roubo/plugin-sdk` 0.5.0, which targets
 plugin API `1.6.0`.
@@ -343,7 +343,7 @@ beats allow:
   says so too, with `agentPermissionRuleTiers: [allow, deny]`, so the
   permissions screen offers no way to create an ask rule for a Cursor project
   and marks any the project already saved as not applied (APCC-TC-043). That
-  key is what makes the 1.7.0 host floor in `roubo: ^1.7.0` necessary.
+  key is what makes the 1.8.0 host floor in `roubo: ^1.8.0` necessary.
 - Each rule is normalised into Cursor's typed form. `Shell(...)`, `Read(...)`,
   and `Write(...)` pass through; `Bash(...)` becomes `Shell(...)`, and
   `Edit(...)` and `MultiEdit(...)` become `Write(...)`. A bare tool name covers
