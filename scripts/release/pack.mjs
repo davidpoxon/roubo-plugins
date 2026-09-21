@@ -86,9 +86,9 @@ export const INSTALLABLE_PLUGIN_IDS = [
  * published, or no longer built at all).
  *
  * `codex` left this list once it published (davidpoxon/roubo-development#758),
- * and `cursor-cli` did the same (davidpoxon/roubo-development#865). It stays as
- * the declared route for each deliberate exclusion, because the alternative is
- * that exclusion being inferred from absence again.
+ * and `cursor-cli` left it once its catalog publish landed. It stays as the
+ * declared route for each deliberate exclusion, because the alternative is that
+ * exclusion being inferred from absence again.
  *
  * @type {Record<string, string>}
  */
