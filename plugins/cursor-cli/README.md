@@ -45,7 +45,13 @@ Roubo does not install this plugin, so update Roubo first. Everything else the
 plugin uses comes from the published `@roubo/plugin-sdk` 0.6.0, which targets
 plugin API `1.7.0`.
 
-To build it from source in this repository:
+Install the plugin itself from the first-party Roubo marketplace: open
+**Settings > Marketplace**, pick Cursor CLI, review the declared permissions,
+and confirm. The install stages the package into `~/.roubo/plugins/cursor-cli/`,
+and the plugin then appears on **Settings > Plugins** as an agent. Consent is
+checked before any launch, so an un-consented plugin stays inert.
+
+To build it from source in this repository instead:
 
 ```bash
 npm install
