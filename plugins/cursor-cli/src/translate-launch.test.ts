@@ -21,6 +21,22 @@ function manifest(): string {
   return read("../roubo-plugin.yaml");
 }
 
+/**
+ * Whether the manifest's `roubo: ^X.Y.Z` floor is at or above `min`. Each
+ * declaration that needs a newer host asserts its own minimum through this, so
+ * the tests keep guarding the reason each one exists and a later bump for a
+ * different declaration does not break them.
+ */
+function floorAtLeast(min: [number, number, number]): boolean {
+  const match = /^roubo: \^(\d+)\.(\d+)\.(\d+)$/m.exec(manifest());
+  if (!match) return false;
+  const floor = match.slice(1, 4).map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (floor[i] !== min[i]) return floor[i] > min[i];
+  }
+  return true;
+}
+
 describe("cursor-cli translateLaunch (APCC-FR-008)", () => {
   it("emits a launch descriptor that runs the Cursor CLI (APCC-TC-032)", () => {
     const descriptor = translateLaunch({ config: {}, context: contextWith() });
@@ -126,18 +142,40 @@ describe("cursor-cli notification wiring (APCC-FR-017)", () => {
       format: "json",
       ops: [
         { op: "set", path: "version", value: 1 },
-        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+        {
+          op: "upsertArray",
+          path: "hooks.stop",
+          value: { command: "{{notifierCommand}}" },
+          match: { key: "command", contains: "{{notifier}}" },
+        },
       ],
     });
   });
 
-  it("writes only the stop hook, so the user's other hooks and keys survive (APCC-TC-048)", () => {
+  it("merges into hooks.stop rather than setting it, so the user's own stop hook survives (APCC-TC-048)", () => {
     const { ops } = wiring().carrier.workspaceWrite;
 
     // Ops apply against the parsed existing file, so any path they do not
-    // touch is kept. Neither op may replace the whole `hooks` object.
+    // touch is kept. Neither op may replace the whole `hooks` object, and the
+    // stop registration must merge: a `set` would drop a `stop` entry the user
+    // registered in this worktree.
     expect(ops.map((op) => op.path)).toEqual(["version", "hooks.stop"]);
     expect(ops.some((op) => op.op === "delete")).toBe(false);
+    expect(ops.find((op) => op.path === "hooks.stop")?.op).toBe("upsertArray");
+  });
+
+  it("needles the match on the part of the command that survives a relaunch (APCC-TC-048)", () => {
+    const stop = wiring().carrier.workspaceWrite.ops.find((op) => op.path === "hooks.stop");
+
+    // The command the host writes carries `{{sessionId}}`, so it differs on
+    // every launch. Matching on it would stack a second Roubo entry each time;
+    // the notifier path is the part that stays put.
+    expect(stop).toEqual({
+      op: "upsertArray",
+      path: "hooks.stop",
+      value: { command: "{{notifierCommand}}" },
+      match: { key: "command", contains: "{{notifier}}" },
+    });
   });
 
   it("templates the correlation value rather than declaring a real one (APCC-TC-049)", () => {
@@ -656,13 +694,19 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
   // APCC-TC-043 / APCC-FR-016. Cursor's rules format has no `ask` tier, so the
   // manifest says which tiers it does carry and the permissions screen stops
   // offering one whose rules `buildRulesWrite` would drop. The key needs host
-  // plugin API 1.8.0, so the declared range has to pin that floor or an older
-  // host would refuse the manifest on an unrecognised key instead of by version.
+  // plugin API 1.8.0, so the declared range has to pin at least that floor or an
+  // older host would refuse the manifest on an unrecognised key instead of by
+  // version.
   it("declares the two rule tiers Cursor carries, and the host floor that key needs", () => {
-    const yaml = manifest();
+    expect(manifest()).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
+    expect(floorAtLeast([1, 8, 0])).toBe(true);
+  });
 
-    expect(yaml).toMatch(/^agentPermissionRuleTiers:\n {2}- allow\n {2}- deny$/m);
-    expect(yaml).toMatch(/^roubo: \^1\.8\.0$/m);
+  it("pins the host floor the hook registration's write op needs", () => {
+    // `upsertArray` arrived with host API 1.7.0. The descriptor schema is
+    // strict, so a host below that floor would reject the whole descriptor at
+    // launch; the pin turns that into a version-named refusal at install.
+    expect(floorAtLeast([1, 7, 0])).toBe(true);
   });
 
   it("declares the process capability false", () => {

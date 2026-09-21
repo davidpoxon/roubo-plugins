@@ -264,13 +264,14 @@ export function translateLaunch(params: {
  * most one waiting notification (APCC-TC-051).
  *
  * The ops apply in order against the parsed existing file, so every other key
- * and every hook on another event survives (APCC-TC-048). One limit: `set`
- * replaces the whole `hooks.stop` array, so a `stop` entry the user registered
- * in this worktree's own hooks file is displaced for a Roubo-launched session.
- * The contract's only merge op, `unionArray`, takes strings, and a hook entry is
- * an object, so a per-entry merge needs a new host op
- * (davidpoxon/roubo-development#890). `version: 1` is the
- * hooks-file schema version Cursor requires.
+ * and every hook on another event survives. `hooks.stop[]` is merged rather
+ * than set, so a `stop` entry the user registered in this worktree's own hooks
+ * file survives too and the Roubo entry is registered alongside it
+ * (APCC-TC-048). `upsertArray` needles the notifier path rather than the whole
+ * command, because the command carries the session id and so differs on every
+ * launch while the notifier path does not: that is what lets a second launch
+ * replace the entry the first one wrote instead of stacking another beside it.
+ * `version: 1` is the hooks-file schema version Cursor requires.
  */
 const NOTIFICATION_WIRING: NotificationWiring = {
   kind: "file-notifier",
@@ -281,7 +282,12 @@ const NOTIFICATION_WIRING: NotificationWiring = {
       format: "json",
       ops: [
         { op: "set", path: "version", value: 1 },
-        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+        {
+          op: "upsertArray",
+          path: "hooks.stop",
+          value: { command: "{{notifierCommand}}" },
+          match: { key: "command", contains: "{{notifier}}" },
+        },
       ],
     },
     args: ["{{notifier}}", "{{sessionId}}"],

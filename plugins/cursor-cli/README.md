@@ -42,8 +42,8 @@ There is a Roubo prerequisite too: the host must report plugin API `1.8.0` or
 newer, the release that added the `agentPermissionRuleTiers` manifest key this
 plugin declares. That is what the manifest's `roubo: ^1.8.0` pins, and an older
 Roubo does not install this plugin, so update Roubo first. Everything else the
-plugin uses comes from the published `@roubo/plugin-sdk` 0.5.0, which targets
-plugin API `1.6.0`.
+plugin uses comes from the published `@roubo/plugin-sdk` 0.6.0, which targets
+plugin API `1.7.0`.
 
 To build it from source in this repository:
 
@@ -187,7 +187,12 @@ notification: {
       format: "json",
       ops: [
         { op: "set", path: "version", value: 1 },
-        { op: "set", path: "hooks.stop", value: [{ command: "{{notifierCommand}}" }] },
+        {
+          op: "upsertArray",
+          path: "hooks.stop",
+          value: { command: "{{notifierCommand}}" },
+          match: { key: "command", contains: "{{notifier}}" },
+        },
       ],
     },
     args: ["{{notifier}}", "{{sessionId}}"],
@@ -211,11 +216,13 @@ One turn can send two `stop` events. The host reuses the bench's live
 notification, so one idle period raises at most one waiting notification, and a
 later idle period raises another (APCC-TC-051).
 
-The write keeps every other key in the file and every hook on another event
-(APCC-TC-048). One limit: it sets the whole `hooks.stop` array, so a `stop`
-entry of your own in the worktree's `.cursor/hooks.json` is replaced for a
-Roubo-launched session. The contract has no per-entry merge for hook objects
-yet; davidpoxon/roubo-development#890 tracks it.
+The write keeps every other key in the file and every hook on another event, and
+`hooks.stop` is merged rather than set, so a `stop` entry of your own in the
+worktree's `.cursor/hooks.json` survives and the Roubo entry is registered
+alongside it (APCC-TC-048). `match` needles the notifier path rather than the
+whole command, because the command carries the session id and so differs on
+every launch while the notifier path does not. A second launch therefore
+replaces the entry the first one wrote instead of adding another beside it.
 
 ### Waiting notifications
 
