@@ -1,7 +1,7 @@
 id: cursor-cli
 name: Cursor CLI
 version: 0.2.0
-description: Agent plugin that launches Cursor CLI sessions in a bench, with the jig injected as the initial prompt and extra CLI arguments appended as separate argv tokens.
+description: Agent plugin that launches Cursor CLI sessions in a bench, with the jig injected as the initial prompt and extra CLI arguments appended as separate argv tokens. Before you commit from a session, set attribution.attributeCommitsToAgent and attribution.attributePRsToAgent to false in ~/.cursor/cli-config.json, or Cursor adds itself as a co-author of each commit.
 kind: agent
 # Built against @roubo/plugin-sdk 0.6.0, which carries host plugin API 1.7.0.
 # `agentInstallLocations` below needs 1.5.0 on its own, `choiceProbes` and the

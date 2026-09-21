@@ -57,6 +57,10 @@ That writes `plugins/cursor-cli/dist/`, which the manifest's
 `plugins/cursor-cli/` itself, the one holding `roubo-plugin.yaml`, through
 **Settings > Plugins > Install plugin** on the **Local directory** tab.
 
+Last, set `attribution.attributeCommitsToAgent` and
+`attribution.attributePRsToAgent` to `false` in `~/.cursor/cli-config.json`
+(see [Commit attribution](#commit-attribution)).
+
 ## Usage
 
 Agent configuration is not part of `roubo.yaml`. Set the application-level
@@ -369,6 +373,38 @@ the bench workspace and refuses and reports any write that escapes it
 The manifest declares `processes: false`, no credential slots, no filesystem
 paths, no network hosts, no ports, and no docker access. You sign in to Cursor
 directly; the plugin never handles a credential.
+
+### Commit attribution
+
+By default the Cursor CLI adds a co-author trailer to each commit that a
+session makes:
+
+```
+Co-authored-by: Cursor <cursoragent@cursor.com>
+```
+
+Roubo's `no-ai-coauthorship` check rejects a commit or pull request body that
+credits an AI coding agent, and other repositories can have the same rule. To
+stop the credit, set both attribution keys to `false` in your global Cursor
+configuration, `~/.cursor/cli-config.json`:
+
+```json
+{
+  "attribution": {
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
+  }
+}
+```
+
+`attributeCommitsToAgent` removes the commit trailer. `attributePRsToAgent`
+removes the Cursor credit line from a pull request body that the session
+writes.
+
+Only you can change this setting. The plugin never writes the global file (see
+[Permissions](#permissions)), and the project's `.cursor/cli.json` accepts only
+`permissions`, so a bench cannot turn the credit off for you. The
+**Settings > AI Agents** card for this plugin shows the same instruction.
 
 ## Links
 
