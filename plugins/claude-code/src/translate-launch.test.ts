@@ -13,6 +13,26 @@ function contextWith(effectiveConfig: Record<string, unknown> = {}): AgentLaunch
   };
 }
 
+function manifest(): string {
+  return readFileSync(new URL("../roubo-plugin.yaml", import.meta.url), "utf-8");
+}
+
+/**
+ * Whether the manifest's `roubo: ^X.Y.Z` floor is at or above `min`. Each
+ * declaration that needs a newer host asserts its own minimum through this, so
+ * the tests keep guarding the reason each one exists and a later bump for a
+ * different declaration does not break them.
+ */
+function floorAtLeast(min: [number, number, number]): boolean {
+  const match = /^roubo: \^(\d+)\.(\d+)\.(\d+)$/m.exec(manifest());
+  if (!match) return false;
+  const floor = match.slice(1, 4).map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (floor[i] !== min[i]) return floor[i] > min[i];
+  }
+  return true;
+}
+
 describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
   it("emits model, effort, and mode as separate argv tokens from the effective config (AP-TC-085)", () => {
     const config = { model: "opus", effort: "high", mode: "plan" };
@@ -367,5 +387,36 @@ describe("version probe (AP-FR-014, AP-TC-100)", () => {
     const { capabilities } = translateLaunch({ config, context: contextWith(config) });
 
     expect(capabilities?.versionProbe?.minVersion).toBe("2.1.111");
+  });
+});
+
+describe("claude-code manifest (APCC-NFR-003)", () => {
+  // A launch that fails on a missing CLI, or is blocked below the floor, names
+  // how to install or update it, and the host takes that step from this
+  // manifest rather than a generic "install the agent CLI". The key needs host
+  // plugin API 1.9.0, so the declared range has to pin at least that floor or
+  // an older host would refuse the manifest on an unrecognised key instead of by
+  // version.
+  it("declares the Claude Code CLI install and update steps, and the host floor that key needs", () => {
+    expect(manifest()).toMatch(
+      new RegExp(
+        [
+          "^agentInstallGuidance:",
+          "  install:",
+          "    command: curl -fsSL https://claude\\.ai/install\\.sh \\| bash",
+          "    url: https://code\\.claude\\.com/docs/en/setup#install-claude-code",
+          "  update:",
+          "    command: claude update",
+          "    url: https://code\\.claude\\.com/docs/en/setup#update-claude-code$",
+        ].join("\n"),
+        "m",
+      ),
+    );
+    expect(floorAtLeast([1, 9, 0])).toBe(true);
+  });
+
+  it("pins the host floor `agentInstallLocations` needs", () => {
+    expect(manifest()).toMatch(/^agentInstallLocations:$/m);
+    expect(floorAtLeast([1, 5, 0])).toBe(true);
   });
 });

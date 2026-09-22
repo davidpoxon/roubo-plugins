@@ -19,15 +19,27 @@ difference is declared by this plugin rather than special-cased by the host.
 
 ## Install
 
-The plugin drives an agent CLI it does not ship. Install the Codex CLI first, at
-0.144.0 or newer (see [Compatibility window](#compatibility-window)), and check
-that `codex` resolves on the machine.
+The plugin drives an agent CLI it does not ship. Install the Codex CLI first
+with its standalone installer, and check that `codex` resolves on the machine:
 
-There is a Roubo prerequisite too, from 0.2.0 on: the host must report plugin API
-`1.5.0` or newer, the release that carries the `agentInstallLocations` this
-plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what the
-manifest's `roubo: ^1.5.0` pins, and an older Roubo does not install this
-version, so update Roubo first.
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+codex --version
+```
+
+The installed CLI must be 0.144.0 or newer. An older one blocks the launch
+before any terminal opens; update it by running the installer again (see
+[Compatibility window](#compatibility-window)). `npm install -g @openai/codex`
+and `brew install --cask codex` work too, and OpenAI's
+[Codex CLI page](https://learn.chatgpt.com/docs/codex/cli) covers each of them.
+
+There is a Roubo prerequisite too: the host must report plugin API `1.9.0` or
+newer, the release that added the `agentInstallGuidance` manifest key this
+plugin declares (see [Install and update guidance](#install-and-update-guidance)).
+The `agentInstallLocations` key it also declares needs `1.5.0` (see
+[Lifecycle parity](#lifecycle-parity)). That is what the manifest's
+`roubo: ^1.9.0` pins, and an older Roubo does not install this plugin, so update
+Roubo first. 0.2.2 remains the last release that runs on a host below `1.9.0`.
 
 Install the plugin itself from the first-party Roubo marketplace: open
 **Settings > Marketplace**, pick Codex CLI, review the declared permissions, and
@@ -312,6 +324,34 @@ possibly-stale argument map. Raise the ceiling as part of re-verifying against a
 newer CLI, and raise `minVersion` only when something this plugin emits genuinely
 stops working.
 
+### Install and update guidance
+
+The host has no Codex-specific text of its own, so the manifest declares how to
+install and update the Codex CLI (APCC-NFR-003):
+
+```yaml
+agentInstallGuidance:
+  install:
+    command: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+    url: https://learn.chatgpt.com/docs/codex/cli
+  update:
+    command: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+    url: https://learn.chatgpt.com/docs/codex/cli
+```
+
+When `codex` is not found, the launch-failure message names the install
+command, and the error panel shows it with a button to copy it and a link to
+OpenAI's Codex CLI page. When the detected version is below `minVersion`, the
+message and the panel name the update command in the same way. The
+**Settings > AI Agents** card shows the install step when it cannot detect the
+CLI, and the update step when the detected version is below the floor.
+
+Each command is display text. The host shows it for you to copy and never runs
+it. Both steps come from OpenAI's own Codex CLI page, which names the same
+installer for an update. The installer shown is the macOS and Linux one, and it
+puts `codex` in `~/.local/bin`, the first of the install locations below. On
+Windows, or for an npm or Homebrew install, follow the link.
+
 ### Lifecycle parity
 
 Because the descriptor is executed by the same host launch pipeline every other
@@ -353,7 +393,7 @@ nowhere still fails the launch with an error naming every location tried. So the
 plugin keeps declaring the bare `codex` rather than an absolute path for the
 machine it happens to run on: the install locations are manifest metadata, and
 the descriptor stays host-agnostic. Declaring them needs a host reporting API
-`1.5.0` or newer, which is what this plugin's `roubo: ^1.5.0` range pins.
+`1.5.0` or newer, which this plugin's `roubo: ^1.9.0` range covers.
 
 ## Links
 

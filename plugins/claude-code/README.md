@@ -19,14 +19,27 @@ change.
 ## Install
 
 The plugin drives an agent CLI it does not ship. Install the Claude Code CLI
-first, at 2.1.111 or newer (see [Compatibility window](#compatibility-window)),
-and check that `claude` resolves on the machine.
+first with its native installer, and check that `claude` resolves on the machine:
 
-There is a Roubo prerequisite too, from 0.4.0 on: the host must report plugin API
-`1.5.0` or newer, the release that carries the `agentInstallLocations` this
-plugin now declares (see [Lifecycle parity](#lifecycle-parity)). That is what the
-manifest's `roubo: ^1.5.0` pins. An older Roubo does not install this version, so
-update Roubo first; 0.3.0 remains the last release that runs on a pre-1.5.0 host.
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude --version
+```
+
+The installed CLI must be 2.1.111 or newer. An older one blocks the launch before
+any terminal opens; update it with `claude update` (see
+[Compatibility window](#compatibility-window)). Homebrew, WinGet, npm, and Linux
+package-manager installs work too, and Anthropic's
+[setup page](https://code.claude.com/docs/en/setup) covers each of them.
+
+There is a Roubo prerequisite too: the host must report plugin API `1.9.0` or
+newer, the release that added the `agentInstallGuidance` manifest key this
+plugin declares (see [Install and update guidance](#install-and-update-guidance)).
+The `agentInstallLocations` key it also declares needs `1.5.0` (see
+[Lifecycle parity](#lifecycle-parity)). That is what the manifest's
+`roubo: ^1.9.0` pins, and an older Roubo does not install this plugin, so update
+Roubo first. 0.5.0 remains the last release that runs on a host below `1.9.0`,
+and 0.3.0 the last that runs on a host below `1.5.0`.
 
 Install the plugin itself from the first-party Roubo marketplace: open
 **Settings > Marketplace**, pick Claude Code, review the declared permissions,
@@ -245,6 +258,37 @@ The probe itself is declarative: the host spawns `claude --version`, scans the
 output for the first semver, and caches the result per resolved binary. The
 plugin spawns nothing.
 
+### Install and update guidance
+
+The host has no Claude-specific text of its own, so the manifest declares how to
+install and update the Claude Code CLI (APCC-NFR-003):
+
+```yaml
+agentInstallGuidance:
+  install:
+    command: curl -fsSL https://claude.ai/install.sh | bash
+    url: https://code.claude.com/docs/en/setup#install-claude-code
+  update:
+    command: claude update
+    url: https://code.claude.com/docs/en/setup#update-claude-code
+```
+
+When `claude` is not found, the launch-failure message names the install
+command, and the error panel shows it with a button to copy it and a link to the
+install section of Anthropic's setup page. When the detected version is below
+`minVersion`, the message and the panel name `claude update` in the same way,
+with a link to the update section. The **Settings > AI Agents** card shows the
+install step when it cannot detect the CLI, and the update step when the
+detected version is below the floor.
+
+Each command is display text. The host shows it for you to copy and never runs
+it. Both commands and both links come from Anthropic's own setup page. The
+installer shown is the macOS, Linux, and WSL one, and it puts `claude` in
+`~/.local/bin`, the first of the install locations below. A native install also
+updates itself in the background; `claude update` applies an update at once. On
+native Windows, or for a Homebrew, WinGet, or Linux package-manager install,
+follow the link: those installs update through their own package manager.
+
 ### Lifecycle parity
 
 Because the descriptor is executed by the same host launch pipeline the built-in
@@ -284,7 +328,7 @@ that table for this CLI rather than merging with it, so dropping an entry would
 strand an install the host resolves today, and reordering one would change which
 binary wins where two are present. Append when a new install location appears;
 never remove or reorder. Declaring the list needs a host reporting API `1.5.0` or
-newer, which is what this plugin's `roubo: ^1.5.0` range pins.
+newer, which this plugin's `roubo: ^1.9.0` range covers.
 
 Owning the list here rather than in the host is the point: a declarative,
 host-agnostic descriptor should not hardcode absolute install paths for the

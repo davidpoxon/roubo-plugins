@@ -3,18 +3,12 @@ name: Codex CLI
 version: 0.2.2
 description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
 kind: agent
-# `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
-# is strict, so a host predating the field rejects this whole manifest on the
-# unrecognised key rather than ignoring it. Pinning the floor does not change
-# that: the host parses the manifest before it reads this range, so such a host
-# reports an invalid manifest and never gets as far as a compatibility verdict.
-# What the range does buy is the hosts it CAN speak to, one that knows the field
-# but sits below 1.5.0, which refuses the plugin cleanly and names the version it
-# reports. The other half of the gate is release order: this plugin ships only
-# alongside a host carrying the field, so no released host meets it as an
-# unknown key. Making the host answer with the version it needs, so the gate
-# stops resting on release order, is davidpoxon/roubo-development#719.
-roubo: ^1.5.0
+# `agentInstallLocations` below needs host plugin API 1.5.0, and
+# `agentInstallGuidance` below needs 1.9.0. The manifest schema is strict, so
+# the 1.9.0 floor gives an older host a clean, version-named refusal rather than
+# an unknown-key error. Both are manifest keys with no SDK type, so they need the
+# newer host but no newer SDK.
+roubo: ^1.9.0
 entry: ./dist/index.js
 contractVersion: 1
 # Where the Codex CLI installs itself, probed in this order when `codex` is not
@@ -37,6 +31,22 @@ agentInstallLocations:
   - ~/.local/bin/codex
   - /opt/homebrew/bin/codex
   - /usr/local/bin/codex
+# How a user installs and updates the Codex CLI. A launch that fails because
+# `codex` is missing names the install step, and a launch blocked below
+# `agentCompatibility.minVersion` names the update step; the AI Agents card
+# shows the same. Both come from OpenAI's own Codex CLI page, which the `url`
+# links: the standalone installer for macOS and Linux, which puts `codex` in
+# `~/.local/bin`, the first location above. The page names the same installer
+# for an update, so both steps declare it. The same page also covers the npm and
+# Homebrew installs named above.
+# The host shows each command for the user to copy and never runs it.
+agentInstallGuidance:
+  install:
+    command: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+    url: https://learn.chatgpt.com/docs/codex/cli
+  update:
+    command: curl -fsSL https://chatgpt.com/codex/install.sh | sh
+    url: https://learn.chatgpt.com/docs/codex/cli
 # The agent-CLI compatibility window (AP-FR-014). Codex CLI 0.144.1 is the only
 # version any Roubo work has touched: spike #502 surveyed its whole launch
 # surface against the real binary (every flag and config key below was accepted
