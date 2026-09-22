@@ -658,7 +658,7 @@ describe("cursor-cli model (APCC-FR-009)", () => {
   });
 });
 
-describe("cursor-cli manifest (APCC-TC-059)", () => {
+describe("cursor-cli manifest", () => {
   it("declares model as a plain string populated by the list-models probe (APCC-TC-012)", () => {
     const yaml = manifest();
 
@@ -709,11 +709,11 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
     expect(floorAtLeast([1, 7, 0])).toBe(true);
   });
 
-  it("declares the process capability false", () => {
+  it("declares the process capability false (APCC-TC-059)", () => {
     expect(manifest()).toMatch(/^ {2}processes: false$/m);
   });
 
-  it("declares no credential slot and no filesystem path", () => {
+  it("declares no credential slot and no filesystem path (APCC-TC-059)", () => {
     const yaml = manifest();
 
     expect(yaml).toMatch(/^ {2}credentials:\n {4}slots: \[\]$/m);
@@ -721,7 +721,7 @@ describe("cursor-cli manifest (APCC-TC-059)", () => {
     expect(yaml).toMatch(/^ {2}network:\n {4}hosts: \[\]$/m);
   });
 
-  it("registers no host client: the entry imports only defineAgentPlugin", () => {
+  it("registers no host client: the entry imports only defineAgentPlugin (APCC-TC-059)", () => {
     const entry = read("./index.ts");
 
     expect(entry).toContain('import { defineAgentPlugin } from "@roubo/plugin-sdk";');
