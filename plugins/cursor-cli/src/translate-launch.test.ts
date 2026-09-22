@@ -702,6 +702,29 @@ describe("cursor-cli manifest", () => {
     expect(floorAtLeast([1, 8, 0])).toBe(true);
   });
 
+  // APCC-TC-036 and APCC-TC-054 S001-O03. A launch that fails on a missing CLI,
+  // or is blocked below the floor, names how to install or update it, and the
+  // host takes that step from this manifest rather than hard-coding Cursor's
+  // installer. The key needs host plugin API 1.9.0, so the declared range has to
+  // pin at least that floor.
+  it("declares the Cursor CLI install and update steps, and the host floor that key needs", () => {
+    expect(manifest()).toMatch(
+      new RegExp(
+        [
+          "^agentInstallGuidance:",
+          "  install:",
+          "    command: curl https://cursor\\.com/install -fsS \\| bash",
+          "    url: https://cursor\\.com/docs/cli/installation",
+          "  update:",
+          "    command: agent update",
+          "    url: https://cursor\\.com/docs/cli/installation$",
+        ].join("\n"),
+        "m",
+      ),
+    );
+    expect(floorAtLeast([1, 9, 0])).toBe(true);
+  });
+
   it("pins the host floor the hook registration's write op needs", () => {
     // `upsertArray` arrived with host API 1.7.0. The descriptor schema is
     // strict, so a host below that floor would reject the whole descriptor at
