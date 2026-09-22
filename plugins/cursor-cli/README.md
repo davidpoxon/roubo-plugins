@@ -38,12 +38,13 @@ The installed build must be `2026.09.08` or newer. An older build blocks the
 launch before any terminal opens; update it with `agent update` or by running
 the installer again (see [Compatibility window](#compatibility-window)).
 
-There is a Roubo prerequisite too: the host must report plugin API `1.8.0` or
-newer, the release that added the `agentPermissionRuleTiers` manifest key this
-plugin declares. That is what the manifest's `roubo: ^1.8.0` pins, and an older
-Roubo does not install this plugin, so update Roubo first. Everything else the
-plugin uses comes from the published `@roubo/plugin-sdk` 0.6.0, which targets
-plugin API `1.7.0`.
+There is a Roubo prerequisite too: the host must report plugin API `1.9.0` or
+newer, the release that added the `agentInstallGuidance` manifest key this
+plugin declares (see [Install and update guidance](#install-and-update-guidance)).
+The `agentPermissionRuleTiers` key it also declares needs `1.8.0`. That is what
+the manifest's `roubo: ^1.9.0` pins, and an older Roubo does not install this
+plugin, so update Roubo first. Everything else the plugin uses comes from the
+published `@roubo/plugin-sdk` 0.6.0, which targets plugin API `1.7.0`.
 
 Install the plugin itself from the first-party Roubo marketplace: open
 **Settings > Marketplace**, pick Cursor CLI, review the declared permissions,
@@ -294,7 +295,8 @@ zeros are valid in an exact version, so no contract change is needed.
 is the earliest build any Roubo Cursor work touched, so the floor brackets the
 verified builds without claiming anything about older ones. A build below it
 fails the launch before any terminal opens, with a message that names the
-detected version, the required version, and how to update.
+detected version, the required version, and how to update: `agent update`, from
+the manifest's [install and update guidance](#install-and-update-guidance).
 
 `testedCeiling` is the build this plugin was verified against, and it never
 blocks (APCC-TC-055). The Cursor CLI ships on a date-based cadence, so
@@ -317,8 +319,36 @@ agentInstallLocations:
 ```
 
 A command found nowhere fails the launch before any terminal opens, with an
-error naming every location tried. Install the CLI as described in
-[Install](#install) to fix it.
+error naming every location tried and the install command from the manifest's
+[install and update guidance](#install-and-update-guidance). Install the CLI as
+described in [Install](#install) to fix it.
+
+### Install and update guidance
+
+The host has no Cursor-specific text of its own, so the manifest declares how
+to install and update the Cursor CLI (APCC-TC-036, APCC-TC-054):
+
+```yaml
+agentInstallGuidance:
+  install:
+    command: curl https://cursor.com/install -fsS | bash
+    url: https://cursor.com/docs/cli/installation
+  update:
+    command: agent update
+    url: https://cursor.com/docs/cli/installation
+```
+
+When `agent` is not found, the launch-failure message names the install
+command, and the error panel shows it with a button to copy it and a link to
+Cursor's installation page. When the detected build is below `minVersion`, the
+message and the panel name `agent update` in the same way. The
+**Settings > AI Agents** card shows the install step when it cannot detect the
+CLI, and the update step when the detected build is below the floor.
+
+Each command is display text. The host shows it for you to copy and never runs
+it. Both commands and the link come from Cursor's own installation page. The
+installer shown is the macOS, Linux, and WSL one; on native Windows, follow the
+link.
 
 ### Permissions
 
@@ -360,7 +390,7 @@ beats allow:
   says so too, with `agentPermissionRuleTiers: [allow, deny]`, so the
   permissions screen offers no way to create an ask rule for a Cursor project
   and marks any the project already saved as not applied (APCC-TC-043). That
-  key is what makes the 1.8.0 host floor in `roubo: ^1.8.0` necessary.
+  key needs host API 1.8.0, which the manifest's `roubo: ^1.9.0` covers.
 - Each rule is normalised into Cursor's typed form. `Shell(...)`, `Read(...)`,
   and `Write(...)` pass through; `Bash(...)` becomes `Shell(...)`, and
   `Edit(...)` and `MultiEdit(...)` become `Write(...)`. A bare tool name covers
