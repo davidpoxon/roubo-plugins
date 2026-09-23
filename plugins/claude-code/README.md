@@ -32,10 +32,11 @@ any terminal opens; update it with `claude update` (see
 package-manager installs work too, and Anthropic's
 [setup page](https://code.claude.com/docs/en/setup) covers each of them.
 
-There is a Roubo prerequisite too: the host must report plugin API `1.9.0` or
-newer, the release that added the `agentInstallGuidance` manifest key this
-plugin declares (see [Install and update guidance](#install-and-update-guidance)).
-The `agentInstallLocations` key it also declares needs `1.5.0` (see
+There is a Roubo prerequisite too, from 0.6.0 on: the host must report plugin
+API `1.9.0` or newer, the release that added the `agentInstallGuidance` manifest
+key this plugin declares (see
+[Install and update guidance](#install-and-update-guidance)). The
+`agentInstallLocations` key it also declares needs `1.5.0` (see
 [Lifecycle parity](#lifecycle-parity)). That is what the manifest's
 `roubo: ^1.9.0` pins, and an older Roubo does not install this plugin, so update
 Roubo first. 0.5.0 remains the last release that runs on a host below `1.9.0`,

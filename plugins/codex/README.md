@@ -33,10 +33,11 @@ before any terminal opens; update it by running the installer again (see
 and `brew install --cask codex` work too, and OpenAI's
 [Codex CLI page](https://learn.chatgpt.com/docs/codex/cli) covers each of them.
 
-There is a Roubo prerequisite too: the host must report plugin API `1.9.0` or
-newer, the release that added the `agentInstallGuidance` manifest key this
-plugin declares (see [Install and update guidance](#install-and-update-guidance)).
-The `agentInstallLocations` key it also declares needs `1.5.0` (see
+There is a Roubo prerequisite too, from 0.3.0 on: the host must report plugin
+API `1.9.0` or newer, the release that added the `agentInstallGuidance` manifest
+key this plugin declares (see
+[Install and update guidance](#install-and-update-guidance)). The
+`agentInstallLocations` key it also declares needs `1.5.0` (see
 [Lifecycle parity](#lifecycle-parity)). That is what the manifest's
 `roubo: ^1.9.0` pins, and an older Roubo does not install this plugin, so update
 Roubo first. 0.2.2 remains the last release that runs on a host below `1.9.0`.

@@ -1,6 +1,6 @@
 id: codex
 name: Codex CLI
-version: 0.2.2
+version: 0.3.0
 description: Bundled agent plugin that launches Codex CLI sessions with a configured model, reasoning effort, approval policy, sandbox mode, and extra CLI arguments.
 kind: agent
 # `agentInstallLocations` below needs host plugin API 1.5.0, and
