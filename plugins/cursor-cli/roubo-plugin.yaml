@@ -1,0 +1,120 @@
+id: cursor-cli
+name: Cursor CLI
+version: 0.2.0
+description: Agent plugin that launches Cursor CLI sessions in a bench, with the jig injected as the initial prompt and extra CLI arguments appended as separate argv tokens. Before you commit from a session, set attribution.attributeCommitsToAgent and attribution.attributePRsToAgent to false in ~/.cursor/cli-config.json, or Cursor adds itself as a co-author of each commit.
+kind: agent
+# Built against @roubo/plugin-sdk 0.6.0, which carries host plugin API 1.7.0.
+# `agentInstallLocations` below needs 1.5.0 on its own, `choiceProbes` and the
+# `file-notifier` wiring need 1.6.0, the `upsertArray` op the hook registration
+# uses needs 1.7.0, `agentPermissionRuleTiers` below needs 1.8.0, and
+# `agentInstallGuidance` below needs 1.9.0. The manifest schema is strict, so
+# the 1.9.0 floor gives an older host a clean, version-named refusal rather than
+# an unknown-key error, and a launch-time rejection of the descriptor's write op
+# never happens. Both of those keys are manifest keys with no SDK type, so they
+# need the newer host but no newer SDK.
+roubo: ^1.9.0
+entry: ./dist/index.js
+contractVersion: 1
+# Where the Cursor CLI installs itself, probed when `agent` is not on the PATH
+# the Roubo server inherits. The official installer (see `agentInstallGuidance`
+# below) puts the `agent` command in `~/.local/bin`, which is the one location
+# verified on a real install. No package-manager location is listed, because
+# none has been verified.
+agentInstallLocations:
+  - ~/.local/bin/agent
+# How a user installs and updates the Cursor CLI. A launch that fails because
+# `agent` is missing names the install step, and a launch blocked below
+# `agentCompatibility.minVersion` names the update step; the AI Agents card
+# shows the same. Both come from Cursor's own installation page,
+# which the `url` links: the macOS, Linux and WSL installer, and `agent update`.
+# The host shows each command for the user to copy and never runs it.
+agentInstallGuidance:
+  install:
+    command: curl https://cursor.com/install -fsS | bash
+    url: https://cursor.com/docs/cli/installation
+  update:
+    command: agent update
+    url: https://cursor.com/docs/cli/installation
+# The agent-CLI compatibility window (APCC-FR-018, APCC-NFR-003). The Cursor CLI
+# reports a date-based build, such as `2026.09.15-d2fe57e`. `parse: semver`
+# reads the first three integer groups, `2026.09.15`, and compares them
+# numerically, so a date build orders correctly across day, month, and year
+# boundaries without a contract change. `minVersion` is the inclusive floor a
+# launch is blocked below; `2026.09.08` is the earliest build any Roubo Cursor
+# work touched (the feasibility study and spikes ran against
+# `2026.09.08-6caf4ff`), so the floor brackets the verified builds without
+# claiming anything about older ones. `testedCeiling` is the build this plugin
+# was verified against, and it warns rather than blocks: the Cursor CLI ships on
+# a date-based cadence, so refusing an unrecognised newer build would age far
+# worse than a staleness notice does.
+agentCompatibility:
+  minVersion: 2026.09.08
+  testedCeiling: 2026.09.15
+  # Lets the host read the installed CLI version without launching a session, so
+  # the AI Agents screen can show a detected version and a within-range or
+  # above-tested-ceiling verdict on a bench that was never started. Same command
+  # and args as the descriptor's launch-time `versionProbe`; the two must agree.
+  probe:
+    command: agent
+    args:
+      - --version
+    parse: semver
+configSchema:
+  type: object
+  properties:
+    # A plain string on purpose: the host fills its choices from `choiceProbes`
+    # below, and a static `enum` or `oneOf` here would reject every probed id it
+    # does not name. No default, so an unset field sends no `--model` flag and
+    # the session runs on the account default.
+    model:
+      title: Model
+      type: string
+      description: The Cursor model id to run, passed unchanged as the value of one --model flag. The choices come from `agent --list-models`. Leave it unset to use your Cursor account default.
+    mode:
+      title: Mode
+      type: string
+      # Must equal DEFAULT_MODE in src/translate-launch.ts; a test asserts it.
+      default: agent
+      description: The operating mode the session starts in, passed as `--mode`. `Agent` is the CLI's own default and sends no flag.
+      oneOf:
+        - const: agent
+          title: Agent
+        - const: plan
+          title: Plan
+        - const: ask
+          title: Ask
+    extraArgs:
+      title: Additional CLI arguments
+      type: string
+      description: Free-form extra arguments appended after the generated flags. Split into discrete argv tokens with quoting honoured; shell metacharacters are never interpreted. Cursor's worktree flags (`-w`, `--worktree`, `--worktree-base`, `--skip-worktree-setup`) are refused, because Roubo owns the worktree.
+# The host runs `agent --list-models` and serves each `<id> - <label>` line as
+# one `model` choice. The `dash-line-pairs` reader skips the listing's heading
+# and trailing tip line, so the plugin parses nothing itself.
+choiceProbes:
+  model:
+    command: agent
+    args:
+      - --list-models
+    parse: dash-line-pairs
+# Cursor's project rules file carries an allow list and a deny list, and nothing
+# between them: it has no `ask` tier, and the CLI already prompts for anything
+# that is neither allowed nor denied. An `ask` rule is therefore dropped rather
+# than written (see the `buildRulesWrite` comment in src/translate-launch.ts),
+# so the permissions screen offers no way to make one and says what happens to
+# any already saved.
+agentPermissionRuleTiers:
+  - allow
+  - deny
+permissions:
+  network:
+    hosts: []
+  credentials:
+    slots: []
+  filesystem:
+    paths: []
+  # Declarative agent plugin: translateLaunch() only emits an AgentLaunchDescriptor
+  # the host validates and executes, so the plugin spawns nothing itself. An agent
+  # plugin must declare `processes: false`; the descriptor is its only write route.
+  processes: false
+  ports: false
+  docker: false

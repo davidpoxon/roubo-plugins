@@ -26,8 +26,17 @@ updates:
       include:
         - "*"
     groups:
+      # vitest and @vitest/* must move in lockstep, including across major
+      # versions, so they belong only to this group.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       dev-dependencies:
         dependency-type: "development"
+        exclude-patterns:
+          - "vitest"
+          - "@vitest/*"
         update-types:
           - "minor"
           - "patch"

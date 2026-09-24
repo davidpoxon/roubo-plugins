@@ -24,6 +24,7 @@ on:
         options:
           - claude-code
           - codex
+          - cursor-cli
           - database
           - github-com
           - process

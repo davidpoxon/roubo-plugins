@@ -10,9 +10,19 @@ name: catalog-coverage
 # This deliberately runs on a schedule and NOT in the publish path (pages.yml).
 # That workflow's tolerance for a missing release is intentional: a version bump
 # lands on `main` before its tag exists, so a strict check there would fail every
-# ordinary bump. A daily run comparing by plugin ID (the previous version's entry
-# is still deployed during a bump window) is what distinguishes "transiently
-# missing" from "missing for weeks".
+# ordinary bump.
+#
+# A bump window is NOT green here. The `main` push regenerates the catalog from the
+# declared versions' published assets, so the freshly bumped plugin is skipped and
+# its entry is dropped outright, not left at the previous version. A cron firing in
+# that window reports the id missing, and that is accurate: the plugin is unlisted
+# until the tag is pushed AND the pages rerun triggered by release.yml's completion
+# redeploys the catalog. Tagging promptly is what keeps the window far shorter than
+# the daily cycle.
+#
+# Comparing by plugin ID rather than by version is what separates "lagging" from
+# "never published": a pages deploy that failed or has not run leaves the last good
+# catalog describing older versions, and that is not a gap.
 #
 # The offline half of the guard, list-versus-list parity, is a unit test under
 # scripts/release/__tests__/publish-list-parity.test.mjs and is gated by pr-check.

@@ -1,20 +1,14 @@
 id: claude-code
 name: Claude Code
-version: 0.4.1
+version: 0.6.0
 description: Bundled agent plugin that launches Claude Code sessions with a configured model, effort, mode, and extra CLI arguments.
 kind: agent
-# `agentInstallLocations` below landed in host API 1.5.0, and the manifest schema
-# is strict, so a host predating the field rejects this whole manifest on the
-# unrecognised key rather than ignoring it. Pinning the floor does not change
-# that: the host parses the manifest before it reads this range, so such a host
-# reports an invalid manifest and never gets as far as a compatibility verdict.
-# What the range does buy is the hosts it CAN speak to, one that knows the field
-# but sits below 1.5.0, which refuses the plugin cleanly and names the version it
-# reports. The other half of the gate is release order: this plugin ships only
-# alongside a host carrying the field, so no released host meets it as an
-# unknown key. Making the host answer with the version it needs, so the gate
-# stops resting on release order, is davidpoxon/roubo-development#719.
-roubo: ^1.5.0
+# `agentInstallLocations` below needs host plugin API 1.5.0, and
+# `agentInstallGuidance` below needs 1.9.0. The manifest schema is strict, so
+# the 1.9.0 floor gives an older host a clean, version-named refusal rather than
+# an unknown-key error. Both are manifest keys with no SDK type, so they need the
+# newer host but no newer SDK.
+roubo: ^1.9.0
 entry: ./dist/index.js
 contractVersion: 1
 # Where the Claude Code CLI installs itself, probed in this order when `claude`
@@ -38,6 +32,23 @@ agentInstallLocations:
   - ~/.claude/local/claude
   - /opt/homebrew/bin/claude
   - /usr/local/bin/claude
+# How a user installs and updates the Claude Code CLI. A launch that fails
+# because `claude` is missing names the install step, and a launch blocked below
+# `agentCompatibility.minVersion` names the update step; the AI Agents card
+# shows the same. Both come from Anthropic's own setup page, which each `url`
+# links at the matching section: the native installer for macOS, Linux and WSL,
+# which puts `claude` in `~/.local/bin`, the first location above, and
+# `claude update`, which applies an update at once instead of waiting for the
+# background updater. A Homebrew, WinGet or Linux package-manager install updates
+# through its own package manager instead, which the linked section names.
+# The host shows each command for the user to copy and never runs it.
+agentInstallGuidance:
+  install:
+    command: curl -fsSL https://claude.ai/install.sh | bash
+    url: https://code.claude.com/docs/en/setup#install-claude-code
+  update:
+    command: claude update
+    url: https://code.claude.com/docs/en/setup#update-claude-code
 # The agent-CLI compatibility window (AP-FR-014). `minVersion` is the inclusive
 # floor a launch is blocked below: 2.1.111 is where `--permission-mode auto`
 # replaced the removed `--enable-auto-mode` flag this plugin no longer emits.
@@ -69,6 +80,8 @@ configSchema:
           title: Account default
         - const: opus
           title: Opus
+        - const: opusplan
+          title: Opus Plan
         - const: sonnet
           title: Sonnet
         - const: haiku

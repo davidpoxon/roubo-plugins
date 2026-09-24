@@ -6,9 +6,12 @@
 // `fetchJson` injection seam, mirroring the `download` seam in
 // fetch-release-assets.mjs, is what lets the decision be pinned here offline.
 //
-// The by-ID (not by-version) comparison is the load-bearing choice: during an
-// ordinary version bump the deployed catalog still carries the PREVIOUS version's
-// entry, and the guard must stay green for that whole window.
+// The by-ID (not by-version) comparison is the load-bearing choice: when a pages
+// deploy fails or has not run, the last good catalog stays up describing OLDER
+// versions than the tree declares, and the guard must stay green for that. It is
+// not a licence for a bump window. A regeneration that succeeds mid-bump drops the
+// bumped id outright rather than leaving it at the previous version, and the guard
+// then reports it missing, which is the "no catalog entry" case below.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -59,10 +62,12 @@ test("an installable id with no catalog entry is reported missing", async () => 
   assert.deepEqual(result.present, ["database"]);
 });
 
-test("a version bump window does not trip the guard", async () => {
-  // The catalog still describes the PREVIOUS version between the `main` push and
-  // the tag push. Comparing by id keeps that legitimate window green.
-  const doc = envelope([{ id: "github-com", version: "0.3.0" }]);
+test("a catalog lagging at an older version is not a gap", async () => {
+  // A pages deploy that failed or has not run leaves the last good catalog up,
+  // describing an older version than the tree declares. Comparing by id keeps that
+  // green; a by-version check would call it a gap.
+  // 0.1.0 is deliberately below the 0.2.0 the tree declares.
+  const doc = envelope([{ id: "github-com", version: "0.1.0" }]);
   const result = await verifyCatalogCoverage({ ids: ["github-com"], fetchJson: stubFetch(doc) });
   assert.deepEqual(result.missing, []);
 });

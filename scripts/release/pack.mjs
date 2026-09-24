@@ -65,7 +65,14 @@ export const PLUGINS_DIR = path.join(REPO_ROOT, "plugins");
  * `scripts/release/verify-catalog-coverage.mjs` is what checks this list against
  * the catalog actually deployed.
  */
-export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "codex", "database", "github-com", "process"];
+export const INSTALLABLE_PLUGIN_IDS = [
+  "claude-code",
+  "codex",
+  "cursor-cli",
+  "database",
+  "github-com",
+  "process",
+];
 
 /**
  * Plugins that are built and tested on every PR but deliberately NOT published to
@@ -78,9 +85,10 @@ export const INSTALLABLE_PLUGIN_IDS = ["claude-code", "codex", "database", "gith
  * either installable or listed here, and rejects a stale entry (an id that is now
  * published, or no longer built at all).
  *
- * Empty today, now that `codex` publishes (davidpoxon/roubo-development#758). It
- * stays as the declared route for the next deliberate exclusion, because the
- * alternative is that exclusion being inferred from absence again.
+ * `codex` left this list once it published (davidpoxon/roubo-development#758),
+ * and `cursor-cli` left it once its catalog publish landed. It stays as the
+ * declared route for each deliberate exclusion, because the alternative is that
+ * exclusion being inferred from absence again.
  *
  * @type {Record<string, string>}
  */
