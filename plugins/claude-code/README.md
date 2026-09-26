@@ -101,12 +101,13 @@ it holds no privilege beyond an integration plugin's (AP-NFR-001).
 
 `config` is the host's already-merged effective config: app defaults, project
 overrides, preset, and per-launch values, resolved before `translateLaunch` runs.
-The mapping is pure, so a given config always produces the same argv.
+The mapping is pure, so a given config and app theme always produce the same
+argv.
 
 Generated argv, in order:
 
 ```
---model <model>  --effort <effort>  --permission-mode <mode>  <extra args…>  --session-id {{sessionId}}  [prompt]
+--model <model>  --effort <effort>  --permission-mode <mode>  --settings {"theme":…}  <extra args…>  --session-id {{sessionId}}  [prompt]
 ```
 
 The generated flags come first and the user's extra tokens follow them, so an
@@ -149,6 +150,23 @@ argv array and never through a shell, so `--foo; rm -rf $HOME "$(whoami)"`
 becomes the five literal tokens `--foo;`, `rm`, `-rf`, `$HOME`, `$(whoami)` and
 runs nothing. An unbalanced quote or a dangling backslash is rejected with a
 clear error rather than guessed at.
+
+### Theme
+
+Claude Code starts in the theme the Roubo app shows when the session opens. The
+host passes it as `context.appTheme`, `light` or `dark`, and the plugin emits
+`--settings {"theme":"light"}` or `{"theme":"dark"}`. Claude Code has no theme
+environment variable, and `--settings` applies the theme to this session only,
+so nothing in your own Claude Code settings changes. For that session it does
+override a daltonized, ANSI, or custom Claude Code theme.
+
+The theme is a snapshot: switching the app theme later does not reach a running
+session. A host that sends no theme (one older than the release that added
+`appTheme`) gets no flag, and Claude Code picks its theme as it always has.
+
+Repeated `--settings` flags do not merge in Claude Code: the last one replaces
+the rest. So when your `extraArgs` carry their own `--settings`, the plugin
+leaves the theme flag out, and your settings decide the theme.
 
 ### Permissions
 

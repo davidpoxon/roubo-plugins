@@ -203,6 +203,66 @@ describe("claude-code translateLaunch (AP-FR-017, AP-US-008)", () => {
   });
 });
 
+describe("claude-code app theme (#117)", () => {
+  function launchWithTheme(
+    appTheme: AgentLaunchContext["appTheme"] | "system",
+    config: Record<string, unknown> = {},
+  ) {
+    const context = { ...contextWith(config), appTheme } as AgentLaunchContext;
+    return translateLaunch({ config, context }).args;
+  }
+
+  it.each(["light", "dark"] as const)(
+    "starts Claude Code in the %s theme through a per-session --settings",
+    (theme) => {
+      expect(launchWithTheme(theme)).toEqual([
+        "--settings",
+        `{"theme":"${theme}"}`,
+        "--session-id",
+        "{{sessionId}}",
+      ]);
+    },
+  );
+
+  it("leaves the argv exactly as before when the host sends no theme", () => {
+    const config = { model: "opus", extraArgs: "--verbose" };
+    expect(translateLaunch({ config, context: contextWith(config) }).args).toEqual([
+      "--model",
+      "opus",
+      "--verbose",
+      "--session-id",
+      "{{sessionId}}",
+    ]);
+  });
+
+  it("ignores a theme value that is neither light nor dark", () => {
+    expect(launchWithTheme("system")).toEqual(["--session-id", "{{sessionId}}"]);
+  });
+
+  it("puts the theme after the generated flags and before the user's extra arguments", () => {
+    expect(launchWithTheme("light", { model: "opus", extraArgs: "--verbose" })).toEqual([
+      "--model",
+      "opus",
+      "--settings",
+      '{"theme":"light"}',
+      "--verbose",
+      "--session-id",
+      "{{sessionId}}",
+    ]);
+  });
+
+  // Repeated --settings flags do not merge in Claude Code: the last replaces the
+  // first outright, so the theme flag would be dead weight next to the user's.
+  it.each(['--settings {"verbose":true}', "--settings=/tmp/mine.json"])(
+    "leaves the theme out when the extra arguments carry their own %s",
+    (extraArgs) => {
+      const args = launchWithTheme("dark", { extraArgs });
+      expect(args.filter((a) => a === "--settings" || a.startsWith("--settings="))).toHaveLength(1);
+      expect(args).not.toContain('{"theme":"dark"}');
+    },
+  );
+});
+
 describe("claude-code permissions capability (AP-FR-016, AP-FR-018, AP-US-007)", () => {
   const rules = {
     allow: ["Bash(npm run *)", "Read(**)"],

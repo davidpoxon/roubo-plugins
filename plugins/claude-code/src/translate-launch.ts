@@ -46,8 +46,8 @@ const MODES = ["default", "plan", "auto", "acceptEdits", "manual"] as const;
 
 /**
  * Build the generated argv prefix from the effective config: the `--model`,
- * `--effort` and `--permission-mode` flags, then the tokenized extra arguments
- * (AP-FR-017).
+ * `--effort` and `--permission-mode` flags, the app theme as a `--settings`
+ * theme (#117), then the tokenized extra arguments (AP-FR-017).
  *
  * Order matters and is part of the contract: the generated flags come first and
  * the user's extra tokens follow them (AP-TC-088), so an extra argument can
@@ -61,10 +61,16 @@ const MODES = ["default", "plan", "auto", "acceptEdits", "manual"] as const;
  * An absent key is treated as the sentinel default, so a config that omits a
  * field behaves exactly like one that sets it to `default` (and, for
  * `extraArgs`, appends nothing: AP-TC-091).
+ *
+ * `appTheme` is the Roubo theme at spawn. Claude Code has no theme env var, but
+ * `theme` is a settings key and `--settings` applies it for this session only,
+ * persisting nothing. Repeated `--settings` flags do not merge (the last one
+ * wins outright), so when the user's extra arguments carry their own
+ * `--settings` the theme flag is left out rather than emitted dead.
  */
 export function buildArgs(
   config: Record<string, unknown>,
-  opts: { omitMode?: boolean } = {},
+  opts: { omitMode?: boolean; appTheme?: unknown } = {},
 ): string[] {
   const args: string[] = [];
 
@@ -81,6 +87,7 @@ export function buildArgs(
   if (mode !== undefined && mode !== "default") args.push("--permission-mode", mode);
 
   const extraArgs = config.extraArgs;
+  let extraTokens: string[] = [];
   if (extraArgs !== undefined && extraArgs !== null) {
     if (typeof extraArgs !== "string") {
       throw new Error(
@@ -88,9 +95,17 @@ export function buildArgs(
           `${typeof extraArgs}.`,
       );
     }
-    args.push(...tokenize(extraArgs));
+    extraTokens = tokenize(extraArgs);
   }
 
+  const userSetsSettings = extraTokens.some(
+    (token) => token === "--settings" || token.startsWith("--settings="),
+  );
+  if ((opts.appTheme === "light" || opts.appTheme === "dark") && !userSetsSettings) {
+    args.push("--settings", JSON.stringify({ theme: opts.appTheme }));
+  }
+
+  args.push(...extraTokens);
   return args;
 }
 
@@ -106,10 +121,10 @@ export function buildArgs(
  */
 export function translateLaunch(params: {
   config: Record<string, unknown>;
-  // `context` carries the host-minted `sessionId`, the bench workspace, and the
-  // already-merged `effectiveConfig` (which is the same object as `config`). The
-  // session id is templated rather than read, so translateLaunch stays a pure
-  // mapping; `context` is part of the contract signature.
+  // `context` carries the host-minted `sessionId`, the bench workspace, the
+  // already-merged `effectiveConfig` (which is the same object as `config`), and
+  // the app theme at spawn. Only `appTheme` is read: the session id is templated
+  // rather than read, so translateLaunch stays a pure mapping.
   context: AgentLaunchContext;
 }): AgentLaunchDescriptor {
   const permissions = readPermissions(params.config.permissions);
@@ -122,7 +137,10 @@ export function translateLaunch(params: {
     // The stable tail: `--session-id <uuid>` closes the generated argv, and the
     // host appends the initial prompt (if any) after it as the last positional.
     args: [
-      ...buildArgs(params.config, { omitMode: permissions?.posture !== undefined }),
+      ...buildArgs(params.config, {
+        omitMode: permissions?.posture !== undefined,
+        appTheme: params.context.appTheme,
+      }),
       "--session-id",
       "{{sessionId}}",
     ],
