@@ -139,8 +139,8 @@ signed by a key the ring does not resolve to `active` fails the publish.
 
 ## Brand and vocabulary
 
-Roubo uses a specific vocabulary: bench, project, component, tool, inspection,
-jig, workspace. User-facing plugin text and documentation should use these
+Roubo uses a specific vocabulary: bench, project, component, tool, jig,
+workspace. User-facing plugin text and documentation should use these
 terms. The name "Roubo" and the Roubo logomark are trademarks; see
 [TRADEMARK.md](TRADEMARK.md) for what you may and may not do with them.
 Contributions that introduce competing vocabulary will be asked to align
