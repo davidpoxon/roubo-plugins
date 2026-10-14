@@ -95,5 +95,7 @@ Because the descriptor is executed by the same `LifecycleEngine` the built-in
 process component runs through, a process component backed by this plugin
 starts, runs, stops, and reconciles identically to the built-in one: the
 canonical process id (`<pluginId>:<benchId>:<componentName>`) is the key stop and
-reconcile use, and the one-time `setup` is skipped on a Stop -> Start cycle. See
-`src/parity.test.ts`.
+reconcile use, and the one-time `setup` is skipped on a Stop -> Start cycle. The roubo
+repository's `server/services/lifecycle-engine.first-party-parity.test.ts`
+drives copies of this plugin's `translate()` output through that engine;
+keep it in step when `src/translate.ts` changes.

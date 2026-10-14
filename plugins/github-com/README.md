@@ -9,7 +9,8 @@ and performs all network I/O through `host.fetch`, so the manifest's
 
 Internally, the plugin uses `octokit` for REST and GraphQL access, configured
 with a fetch adapter that translates standard fetch calls into `host.fetch`
-JSON-RPC requests. That keeps the `githubRequest` helper at `src/github-request.ts`
-byte-identical to its origin at `server/services/github.ts:255`, preserving
-the ETag short-circuit, primary + secondary rate-limit backoff, and 30s TTL
-caches without re-derivation (per IP-FR-039, IP-NFR-006).
+JSON-RPC requests. That let the `githubRequest` helper at `src/github-request.ts`
+be ported unchanged from the Roubo host's former GitHub client (removed in
+davidpoxon/roubo#1461), preserving the ETag short-circuit, primary + secondary
+rate-limit backoff, and 30s TTL caches without re-derivation (per IP-FR-039,
+IP-NFR-006). The plugin is now the only implementation.

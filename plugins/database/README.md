@@ -70,5 +70,7 @@ docker database component runs through, a database component backed by this
 plugin provisions, migrates, and reconciles identically to the built-in one: the
 allocated host port is interpolated into the compose environment and the
 connection string, the optional init service and migration run in the same
-order, and an externally assigned container short-circuits compose. See
-`src/parity.test.ts`.
+order, and an externally assigned container short-circuits compose. The roubo
+repository's `server/services/lifecycle-engine.first-party-parity.test.ts`
+drives copies of this plugin's `translate()` output through that engine;
+keep it in step when `src/translate.ts` changes.

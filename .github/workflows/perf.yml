@@ -1,0 +1,54 @@
+name: perf
+
+# Runs the RUN_PERF_HARNESS-gated performance budgets (every *.perf*.test.* and
+# *.scale*.test.* file) once a week and on demand. The github-com list-issues
+# budgets (IP-TC-098, IP-TC-107) moved here with the plugin source (roubo #1461).
+#
+#   - The budgets are wall-clock assertions, which is why they are gated out of
+#     the default `npm run test:plugins`. On a shared runner they are a flake
+#     source, so this job never runs on `pull_request`: a noisy budget costs a
+#     second look at a red run, never a blocked PR.
+#   - It is therefore a detective control, not a gate.
+#   - The full `perf-evidence` output is teed to a log and uploaded as an
+#     artifact (even when the run fails) so each budget's real numbers are
+#     available for trend and flake analysis.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      # No `npm run build` step: the harnesses run against source through the
+      # vitest transform, so a build would only add minutes.
+      - name: Run the gated performance harnesses
+        shell: bash
+        run: |
+          mkdir -p perf-evidence
+          npm run test:perf 2>&1 | tee perf-evidence/perf-evidence.log
+      # Runs even on a budget breach: the evidence is most useful when the job
+      # is red, since it names which budget broke and by how much.
+      - name: Upload perf evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-evidence-${{ github.run_id }}
+          path: perf-evidence/perf-evidence.log
+          retention-days: 30

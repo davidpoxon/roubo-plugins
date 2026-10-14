@@ -1,6 +1,6 @@
-// Raw shapes returned by the GitHub REST/GraphQL APIs. Mirror the internal
-// types in server/services/github.ts so the verbatim githubRequest helper and
-// the mappers continue to type-check unchanged.
+// Raw shapes returned by the GitHub REST/GraphQL APIs, carried over from the
+// Roubo host's former GitHub client so the ported githubRequest helper and the
+// mappers type-check unchanged.
 
 export interface RawIssue {
   number: number;
