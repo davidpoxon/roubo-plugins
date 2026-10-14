@@ -72,4 +72,5 @@ allocated host port is interpolated into the compose environment and the
 connection string, the optional init service and migration run in the same
 order, and an externally assigned container short-circuits compose. The roubo
 repository's `server/services/lifecycle-engine.first-party-parity.test.ts`
-drives this plugin's descriptors through that engine.
+drives copies of this plugin's `translate()` output through that engine;
+keep it in step when `src/translate.ts` changes.

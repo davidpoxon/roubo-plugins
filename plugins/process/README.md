@@ -97,4 +97,5 @@ starts, runs, stops, and reconciles identically to the built-in one: the
 canonical process id (`<pluginId>:<benchId>:<componentName>`) is the key stop and
 reconcile use, and the one-time `setup` is skipped on a Stop -> Start cycle. The roubo
 repository's `server/services/lifecycle-engine.first-party-parity.test.ts`
-drives this plugin's descriptors through that engine.
+drives copies of this plugin's `translate()` output through that engine;
+keep it in step when `src/translate.ts` changes.

@@ -1,6 +1,7 @@
-// Ports of the read-only fetchers in server/services/github.ts. Helper bodies,
-// GraphQL queries, cache keys, and pagination caps mirror the legacy module so
-// downstream parity tests (IP-TC-042, IP-TC-043) and behaviour under load match.
+// Ported from the read-only fetchers of the Roubo host's former GitHub client
+// (removed in davidpoxon/roubo#1461). Helper bodies, GraphQL queries, cache
+// keys, and pagination caps were kept as they were there, so the parity tests
+// (IP-TC-042, IP-TC-043) and behaviour under load carried over unchanged.
 
 import {
   CACHE_TTL,

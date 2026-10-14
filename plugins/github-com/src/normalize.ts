@@ -138,8 +138,8 @@ export function projectNodeToNormalizedIssue(
 
 /**
  * Walks the recursive blockedBy graph from a batched GraphQL response,
- * filtering closed issues and breaking cycles. Verbatim port of the depth-3
- * walk in server/services/github.ts.
+ * filtering closed issues and breaking cycles. Ported verbatim from the depth-3
+ * walk in the Roubo host's former GitHub client.
  */
 export function flattenBlockers(
   nodes: BlockedByNode[],

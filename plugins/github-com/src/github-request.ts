@@ -1,6 +1,6 @@
-// This module is a verbatim port of server/services/github.ts:23-330 — the
-// helper bodies, constants, comments, and variable names are intentionally
-// preserved so a future diff against the legacy module makes the parity obvious.
+// This module began as a verbatim port of the Roubo host's former GitHub client
+// (removed in davidpoxon/roubo#1461): the helper bodies, constants, comments,
+// and variable names were kept, and the plugin is now the only implementation.
 // Only the entry points are adapted: getOctokit() comes from the plugin-local
 // factory (which configures Octokit with a host.fetch adapter), and sleepImpl
 // is a module-local injectable rather than the legacy __setSleepForTests
@@ -22,9 +22,9 @@ export const CACHE_TTL = 30_000;
 const MAX_CACHE_SIZE = 100;
 
 /**
- * Five 30s TTL caches mirroring the legacy module. They are exported so the
- * fetchers in github-fetchers.ts can populate and read them with the same
- * keying scheme as the legacy implementation.
+ * Five 30s TTL caches, carried over from the former host client. They are
+ * exported so the fetchers in github-fetchers.ts can populate and read them
+ * with one keying scheme.
  */
 export const issueCache = new Map<string, CacheEntry<unknown>>();
 export const projectCache = new Map<string, CacheEntry<unknown>>();
