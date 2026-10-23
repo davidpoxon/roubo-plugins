@@ -44,7 +44,7 @@ plugin declares (see [Install and update guidance](#install-and-update-guidance)
 The `agentPermissionRuleTiers` key it also declares needs `1.8.0`. That is what
 the manifest's `roubo: ^1.9.0` pins, and an older Roubo does not install this
 plugin, so update Roubo first. Everything else the plugin uses comes from the
-published `@roubo/plugin-sdk` 0.6.0, which targets plugin API `1.7.0`.
+published `@roubo/plugin-sdk` 0.8.0, which targets plugin API `1.9.0`.
 
 Install the plugin itself from the first-party Roubo marketplace: open
 **Settings > Marketplace**, pick Cursor CLI, review the declared permissions,
