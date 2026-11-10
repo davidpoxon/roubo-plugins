@@ -162,7 +162,7 @@ sign-off rules stay identical across the Roubo repositories.
 
 When you run `npm install` in your clone, the `prepare` script configures a
 local `commit-msg` git hook that rejects commits missing a `Signed-off-by:`
-line matching your configured git email. If a commit is rejected, re-commit
+line matching the commit's author email. If a commit is rejected, re-commit
 with `git commit -s` or amend with `git commit --amend --signoff`. The
 hook is the same check the PR-time workflow runs, just earlier.
 
@@ -198,11 +198,15 @@ commit is signed off.
 
 ### Bot exemption
 
-Automated dependency-update bots (currently Dependabot) are exempt from the
-per-commit sign-off requirement. The DCO is an attestation of human authorship;
-a bot cannot meaningfully attest to that. The allowlist of exempt author emails
-lives in the shared reusable workflow in
-[davidpoxon/roubo](https://github.com/davidpoxon/roubo/blob/main/.github/workflows/dco-reusable.yml).
+Two bots are exempt from the per-commit sign-off requirement: Dependabot, and
+`poxon-agent[bot]`, the maintainer's GitHub App, which authors commits and pull
+requests for the maintainer to review. The DCO is an attestation of human
+authorship; a bot cannot meaningfully attest to that. For an app-authored pull
+request the maintainer gives that attestation when merging it: the squash commit
+ends with the maintainer's `Signed-off-by:` line. The allowlist of exempt author
+emails lives in the shared reusable workflow in
+[davidpoxon/roubo](https://github.com/davidpoxon/roubo/blob/main/.github/workflows/dco-reusable.yml),
+and the local hook carries the same list.
 
 ### If you forgot to sign off
 

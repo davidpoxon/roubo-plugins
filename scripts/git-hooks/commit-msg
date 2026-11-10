@@ -1,8 +1,9 @@
 #!/bin/sh
 # Roubo commit-msg hook: rejects commits missing a DCO Signed-off-by line
-# matching the committer's email. Mirrors .github/workflows/dco.yml so local
-# and CI verdicts cannot diverge. See CONTRIBUTING.md "Developer Certificate
-# of Origin" for the full rationale.
+# matching the author's email. Mirrors roubo's
+# .github/workflows/dco-reusable.yml so local and CI verdicts cannot diverge.
+# See CONTRIBUTING.md "Developer Certificate of Origin" for the full
+# rationale.
 set -eu
 
 msg_file=$1
@@ -21,12 +22,25 @@ case "$first_line" in
     ;;
 esac
 
-author_email=$(git config user.email || true)
+# The author of the commit being made, as CI reads it (%ae). git exports the
+# author to its hooks, so this honours --author, --amend and GIT_AUTHOR_EMAIL,
+# and falls back to user.email.
+author_ident=$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)
+author_email=$(printf '%s' "$author_ident" | sed -n 's/.*<\(.*\)>.*/\1/p')
 if [ -z "$author_email" ]; then
-  echo "commit-msg hook: git user.email is not set; cannot verify DCO sign-off." >&2
+  echo "commit-msg hook: no author email is set; cannot verify DCO sign-off." >&2
   echo "Set it with: git config --global user.email you@example.com" >&2
   exit 1
 fi
+
+# Bot authors are exempt, as in CI. Keep this case in step with bot_authors
+# in roubo's .github/workflows/dco-reusable.yml.
+case "$author_email" in
+  "49699333+dependabot[bot]@users.noreply.github.com" | \
+  "354874856+poxon-agent[bot]@users.noreply.github.com")
+    exit 0
+    ;;
+esac
 
 # Escape ERE metacharacters in the email so plus-aliased or dotted emails
 # compare as literal strings. Matches the escaping in dco.yml.
