@@ -43,7 +43,8 @@ case "$author_email" in
 esac
 
 # Escape ERE metacharacters in the email so plus-aliased or dotted emails
-# compare as literal strings. Matches the escaping in dco.yml.
+# compare as literal strings. Matches the escaping in roubo's
+# .github/workflows/dco-reusable.yml.
 escaped_email=$(printf '%s' "$author_email" | sed 's/[].[\\$*^+?()|{}]/\\&/g')
 
 if grep -qiE "^Signed-off-by: .+<${escaped_email}>\$" "$msg_file"; then
