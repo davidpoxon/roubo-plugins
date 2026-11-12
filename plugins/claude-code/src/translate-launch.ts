@@ -158,16 +158,36 @@ export function translateLaunch(params: {
 }
 
 /**
+ * The one hook entry Roubo registers, shared by every event it listens on: an
+ * `http` hook that POSTs the event JSON to the host's endpoint. The host
+ * substitutes `{{port}}` at launch; the plugin never learns the real port.
+ */
+const ROUBO_HOOK_ENTRY = [
+  {
+    hooks: [{ type: "http", url: "http://localhost:{{port}}/api/hooks/claude-notification" }],
+  },
+];
+
+/**
  * Roubo's notification endpoint, registered on every session start (AP-TC-078
- * S002-O02, AP-TC-097 S002-O02).
+ * S002-O02, AP-TC-097 S002-O02), for two Claude Code hook events.
  *
- * Catch-all with no matcher, so every Notification event Claude Code emits POSTs
- * back to the host, and correlated on the CLI's own `session_id` (which is the
- * uuid the host handed it as `--session-id`). `Notification` is SET rather than
- * unioned: the host's endpoint must be registered outright, so a stale
- * registration can never survive. The built-in writer replaces the whole `hooks`
- * object; this write touches only `Notification` and leaves other hook events in
- * place, which is what AP-TC-098 asks for (only Roubo-managed keys are touched).
+ * - `Notification`, catch-all with no matcher: a permission prompt, and the
+ *   `idle_prompt` reminder that Claude Code sends after 60 seconds at the prompt.
+ * - `Stop`, which takes no matcher: Claude Code fires it the moment a turn ends.
+ *   Without it, a finished turn is raised by the host's quiescence timer at 8
+ *   seconds and confirmed by `idle_prompt` 52 seconds later. With it, turn end
+ *   is signalled, not inferred.
+ *
+ * Both POST to the same endpoint, which reads only `session_id` and ignores the
+ * event name, and both correlate on the CLI's own `session_id` (the uuid the host
+ * handed it as `--session-id`). Each key is SET rather than unioned: the host's
+ * endpoint must be registered outright, so a stale registration can never
+ * survive. `upsertArray` cannot do this, because Claude Code nests the url under
+ * the entry's `hooks` array and the op matches only a top-level key. The built-in
+ * writer replaces the whole `hooks` object; this write touches only
+ * `Notification` and `Stop` and leaves every other hook event in place, which is
+ * what AP-TC-098 asks for (only Roubo-managed keys are touched).
  */
 const NOTIFICATION_WIRING: NotificationWiring = {
   kind: "http-hook",
@@ -177,17 +197,8 @@ const NOTIFICATION_WIRING: NotificationWiring = {
       relPath: SETTINGS_REL_PATH,
       format: "json",
       ops: [
-        {
-          op: "set",
-          path: "hooks.Notification",
-          value: [
-            {
-              hooks: [
-                { type: "http", url: "http://localhost:{{port}}/api/hooks/claude-notification" },
-              ],
-            },
-          ],
-        },
+        { op: "set", path: "hooks.Notification", value: ROUBO_HOOK_ENTRY },
+        { op: "set", path: "hooks.Stop", value: ROUBO_HOOK_ENTRY },
       ],
     },
   },

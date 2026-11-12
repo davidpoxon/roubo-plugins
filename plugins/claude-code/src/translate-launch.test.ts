@@ -351,6 +351,20 @@ describe("claude-code permissions capability (AP-FR-016, AP-FR-018, AP-US-007)",
                 },
               ],
             },
+            {
+              op: "set",
+              path: "hooks.Stop",
+              value: [
+                {
+                  hooks: [
+                    {
+                      type: "http",
+                      url: "http://localhost:{{port}}/api/hooks/claude-notification",
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       },
@@ -380,6 +394,98 @@ describe("claude-code permissions capability (AP-FR-016, AP-FR-018, AP-US-007)",
     expect(() => translateLaunch({ config, context: contextWith(config) })).toThrow(
       /"permissions.posture" must be one of read-only, guarded, auto-edit, full-auto/,
     );
+  });
+});
+
+/**
+ * Hook bodies that Claude Code 2.1.322 POSTed to the carrier's url on a real
+ * session, with the machine paths and the message text cut down. One
+ * permission prompt and one finished turn, from the same session.
+ */
+const RECORDED_HOOK_BODIES = {
+  Notification: {
+    session_id: "d4d451b7-cccf-4466-a297-646d38585efb",
+    transcript_path: "/home/user/.claude/projects/repo/d4d451b7-cccf-4466-a297-646d38585efb.jsonl",
+    cwd: "/home/user/repo",
+    prompt_id: "302deca2-c433-4122-884f-ccda8126a592",
+    hook_event_name: "Notification",
+    message: "Claude needs your permission",
+    notification_type: "permission_prompt",
+  },
+  Stop: {
+    session_id: "d4d451b7-cccf-4466-a297-646d38585efb",
+    transcript_path: "/home/user/.claude/projects/repo/d4d451b7-cccf-4466-a297-646d38585efb.jsonl",
+    cwd: "/home/user/repo",
+    prompt_id: "302deca2-c433-4122-884f-ccda8126a592",
+    permission_mode: "default",
+    effort: { level: "high" },
+    hook_event_name: "Stop",
+    stop_hook_active: false,
+    last_assistant_message: "I created `notes.md` in the repo root.",
+    background_tasks: [],
+    session_crons: [],
+  },
+} as const;
+
+describe("claude-code turn-end and waiting hooks", () => {
+  function carrierWrite(config: Record<string, unknown> = {}) {
+    const { capabilities } = translateLaunch({ config, context: contextWith(config) });
+    const notification = capabilities?.notification;
+    if (notification?.kind !== "http-hook") throw new Error("expected http-hook wiring");
+    return { capabilities, notification, write: notification.carrier.workspaceWrite };
+  }
+
+  it("registers Stop alongside Notification, both on Roubo's hook endpoint", () => {
+    const { write } = carrierWrite();
+
+    expect(write.ops.map((op) => op.path)).toEqual(["hooks.Notification", "hooks.Stop"]);
+    const [notification, stop] = write.ops;
+    expect(stop).toEqual({ ...notification, path: "hooks.Stop" });
+    expect(JSON.stringify(stop)).toContain(
+      '"url":"http://localhost:{{port}}/api/hooks/claude-notification"',
+    );
+  });
+
+  it("sets each Roubo-managed hook key and never replaces the whole hooks object (AP-TC-098)", () => {
+    const { write } = carrierWrite();
+
+    for (const op of write.ops) {
+      expect(op.op).toBe("set");
+      expect(op.path).toMatch(/^hooks\.[A-Za-z]+$/);
+    }
+  });
+
+  it("leaves the port and the session id for the host to resolve", () => {
+    const { notification } = carrierWrite();
+    const declared = JSON.stringify(notification);
+
+    expect(declared).toContain("{{port}}");
+    expect(declared).not.toMatch(/localhost:\d/);
+    expect(declared).not.toContain(contextWith().sessionId);
+    expect(notification.correlation).toEqual({ field: "session_id", source: "agent-native" });
+  });
+
+  it("keeps the rules write first, in the same settings file, when the project has rules (AP-TC-097)", () => {
+    const rules = { allow: ["Read(**)"], ask: [], deny: [] };
+    const { capabilities, write } = carrierWrite({ permissions: { rules } });
+
+    expect(capabilities?.workspaceWrites?.[0]?.relPath).toBe(".claude/settings.local.json");
+    expect(write.relPath).toBe(".claude/settings.local.json");
+    expect(write.ops.map((op) => op.path)).toEqual(["hooks.Notification", "hooks.Stop"]);
+  });
+
+  it("registers only events whose payload carries the declared correlation field", () => {
+    const { notification, write } = carrierWrite();
+    const field = notification.correlation.field;
+
+    for (const op of write.ops) {
+      const event = op.path.replace(/^hooks\./, "") as keyof typeof RECORDED_HOOK_BODIES;
+      const body: Record<string, unknown> = RECORDED_HOOK_BODIES[event];
+      expect(body, `no recorded ${event} payload`).toBeDefined();
+      expect(body.hook_event_name).toBe(event);
+      expect(typeof body[field]).toBe("string");
+      expect(body[field]).toMatch(/^[0-9a-f-]{36}$/);
+    }
   });
 });
 
