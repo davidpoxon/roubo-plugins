@@ -213,15 +213,26 @@ through to `permissions.deny` unchanged.
 ### Notifications
 
 The plugin declares `http-hook` notification wiring, carried by the same
-`.claude/settings.local.json` write: `hooks.Notification` is **set** (not
-unioned) to the catch-all Roubo endpoint at
-`http://localhost:{{port}}/api/hooks/claude-notification`, and correlation rides
-Claude Code's own `session_id`, which is the uuid the host handed it as
-`--session-id`. Setting rather than merging matches the built-in writer for the
-`Notification` key: Roubo's endpoint must be registered outright on every session
-start so a stale registration can never survive. Unlike the built-in writer,
-which replaces the whole `hooks` object, this write leaves other hook events such
-as `Stop` untouched.
+`.claude/settings.local.json` write. Two hook events are **set** (not unioned)
+to the same Roubo endpoint at
+`http://localhost:{{port}}/api/hooks/claude-notification`:
+
+- `hooks.Notification`, catch-all with no matcher. This is how a permission
+  prompt reaches Roubo.
+- `hooks.Stop`, which Claude Code fires the moment a turn ends. The
+  `Notification` hook reports an idle prompt only after 60 seconds, so without
+  `Stop` a finished turn is inferred by Roubo's 8 second quiescence timer. With
+  it, the turn end is signalled.
+
+Correlation rides Claude Code's own `session_id` in the hook body, which is the
+uuid the host handed it as `--session-id`. Setting rather than merging matches
+the built-in writer for the `Notification` key: Roubo's endpoint must be
+registered outright on every session start so a stale registration can never
+survive. A consequence is that a `Notification` or `Stop` hook written by hand
+into the bench's `.claude/settings.local.json` is replaced on launch. Hooks in
+`.claude/settings.json` or `~/.claude/settings.json` are not touched, and Claude
+Code runs them as well. Unlike the built-in writer, which replaces the whole
+`hooks` object, this write leaves every other hook event untouched.
 
 ### Compatibility window
 
